@@ -8,6 +8,11 @@ import authRoute from "./routes/auth.route.js";
 import categoryRoute from "./routes/category.routes.js";
 import addvarintRoute from "./routes/addvariantroute.js";
 import subcategoryRoute from "./routes/subcategory.js";
+
+import orderRoutes from "./routes/order.routes.js";
+import contactRoutes from "./routes/contact.routes.js";
+import bannerRoutes from "./routes/banner.routes.js";
+
 dotenv.config();
 connectDB();
 
@@ -20,6 +25,10 @@ app.use("/api/auth", authRoute);
 app.use("/api/category", categoryRoute);
 app.use("/api/subcategory", subcategoryRoute);
 app.use("/api/variant", addvarintRoute);
+app.use("/api/order", orderRoutes);
+app.use("/api/contact", contactRoutes);
+app.use("/api/banner", bannerRoutes);
+
 
 export default app;
 
