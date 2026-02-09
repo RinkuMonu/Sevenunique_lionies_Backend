@@ -49,6 +49,7 @@ export const createBanner = async (req, res) => {
    GET ALL BANNERS
    GET /api/banner
 ========================= */
+
 export const getBanners = async (req, res) => {
     try {
         const { deviceType, position } = req.query;

@@ -30,6 +30,7 @@ bannerRoute.put(
   updateBanner
 );
 
+
 bannerRoute.delete(
   "/:id",
   protect,
