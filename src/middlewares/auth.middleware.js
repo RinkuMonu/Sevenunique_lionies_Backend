@@ -1,5 +1,6 @@
 import jwt from "jsonwebtoken";
 import User from "../models/user.model.js";
+import redis from "./redis.js";
 
 export const protect = async (req, res, next) => {
   try {
@@ -25,13 +26,32 @@ export const protect = async (req, res, next) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     // 4️⃣ User fetch from DB (fresh & safe)
-    const user = await User.findById(decoded.id).select("_id name email role");
+    const user = await User.findById(decoded.id).select("_id name email role forceLogout");
     console.log(user)
     if (!user) {
       return res.status(401).json({
         success: false,
         message: "User not found or token invalid"
       });
+    }
+
+    if (user.forceLogout) {
+      return res.status(401).json({
+        success: false,
+        code: "FORCE_LOGOUT",
+        message: "session expired login again"
+      });
+    }
+    let redisSession = null
+    if (redis) {
+      redisSession = await redis.get(`USER_AUTH_SESSION:${user._id}`);
+      if (!redisSession || redisSession !== decoded.sessionId) {
+        return res.status(401).json({
+          success: false,
+          code: "FORCE_LOGOUT",
+          message: "You are logged in from another device"
+        });
+      }
     }
 
     // 5️⃣ Attach to request

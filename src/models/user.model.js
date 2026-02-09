@@ -28,6 +28,10 @@ const userSchema = new mongoose.Schema({
     default: "user",
     index: true
   },
+  forceLogout: {
+    type: Boolean,
+    default: false
+  },
 },
   { timestamps: true });
 

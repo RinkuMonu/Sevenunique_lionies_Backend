@@ -1,16 +1,18 @@
 import jwt from "jsonwebtoken";
+import crypto from "crypto";
 import User from "../models/user.model.js";
 import userModel from "../models/user.model.js";
-
+import redis from "../middlewares/redis.js";
 /* =========================
    JWT TOKEN GENERATOR
 ========================= */
-const generateToken = (user) => {
+const generateToken = (user, sessionId) => {
     return jwt.sign(
         {
             id: user._id,
             role: user.role,
-            email: user.email
+            email: user.email,
+            sessionId
         },
         process.env.JWT_SECRET,
         { expiresIn: "7d" }
@@ -101,7 +103,22 @@ export const login = async (req, res) => {
             });
         }
 
-        const token = generateToken(user);
+        const sessionId = crypto.randomUUID();
+
+        const token = generateToken(user, sessionId);
+        if (redis) {
+            try {
+                const SESSION_TTL = 60 * 60 * 24 * 7;
+                await redis.setex(
+                    `USER_AUTH_SESSION:${user._id}`,// key for idl
+                    SESSION_TTL,
+                    sessionId 
+                );
+                // console.log("✅ USER_SESSION set in Redis");
+            } catch (error) {
+                console.error("FAILED TO SET USER_SESSION", error);
+            }
+        }
 
         return res.status(200).json({
             success: true,
@@ -121,6 +138,29 @@ export const login = async (req, res) => {
         });
     }
 };
+
+/* =========================
+   LOGIN USER
+   POST /api/auth/logout
+========================= */
+export const logout = async (req, res) => {
+  try {
+    if (redis) {
+      await redis.del(`USER_AUTH_SESSION:${req.user.id}`);
+    }
+
+    return res.json({
+      success: true,
+      message: "Logged out successfully"
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Logout failed"
+    });
+  }
+};
+
 
 /* =========================
    GET PROFILE
