@@ -1,3 +1,4 @@
+import { deleteLocalFile } from "../config/multer.js";
 import Category from "../models/category.model.js";
 
 /* =========================
@@ -6,17 +7,24 @@ import Category from "../models/category.model.js";
 ========================= */
 export const createCategory = async (req, res) => {
     try {
-        const { key, name, allowedFilters, attributes } = req.body;
+        const { name, allowedFilters } = req.body;
+        console.log(req.file)
 
-        if (!key || !name) {
+        // 🔥 normalize attributeFilters
+        let attributeFilters = {};
+        if (req.body.attributeFilters) {
+            attributeFilters = { ...req.body.attributeFilters };
+        }
+
+        if (!name) {
             return res.status(400).json({
                 success: false,
-                message: "Key and name are required"
+                message: "Name are required"
             });
         }
 
         const exists = await Category.findOne({
-            $or: [{ key }, { name }]
+            $or: [{ name }]
         });
 
         if (exists) {
@@ -25,13 +33,19 @@ export const createCategory = async (req, res) => {
                 message: "Category already exists"
             });
         }
+        const bannerimage = req.files?.bannerimage?.[0]
+            ? `/uploads/${req.files.bannerimage[0].filename}`
+            : null;
 
+        const smallimage = req.files?.smallimage?.[0]
+            ? `/uploads/${req.files.smallimage[0].filename}`
+            : null;
         const category = await Category.create({
-            key,
             name,
             allowedFilters,
-            attributes,
-            image: req.file ? `/uploads/${req.file.filename}` : null
+            attributeFilters,
+            bannerimage,
+            smallimage
         });
 
         return res.status(201).json({
@@ -39,12 +53,14 @@ export const createCategory = async (req, res) => {
             category
         });
     } catch (error) {
+        console.error(error);
         return res.status(500).json({
             success: false,
             message: "Failed to create category"
         });
     }
 };
+
 
 /* =========================
    GET ALL CATEGORIES
@@ -101,19 +117,7 @@ export const getCategoryById = async (req, res) => {
 ========================= */
 export const updateCategory = async (req, res) => {
     try {
-        const updates = {
-            ...req.body
-        };
-
-        if (req.file) {
-            updates.image = `/uploads/${req.file.filename}`;
-        }
-
-        const category = await Category.findByIdAndUpdate(
-            req.params.id,
-            updates,
-            { new: true, runValidators: true }
-        );
+        const category = await Category.findById(req.params.id);
 
         if (!category) {
             return res.status(404).json({
@@ -121,18 +125,44 @@ export const updateCategory = async (req, res) => {
                 message: "Category not found"
             });
         }
+        const updates = {};
+
+        if (req.body.name) updates.name = req.body.name;
+        if (req.body.allowedFilters) updates.allowedFilters = req.body.allowedFilters;
+        if (typeof req.body.attributeFilters === "string") {
+            updates.attributeFilters = JSON.parse(req.body.attributeFilters);
+        }
+        if (req.body.isActive !== undefined) updates.isActive = req.body.isActive;
+
+        if (req.files?.bannerimage?.[0]) {
+            deleteLocalFile(category.bannerimage);
+            updates.bannerimage = `/uploads/${req.files.bannerimage[0].filename}`;
+        }
+
+        if (req.files?.smallimage?.[0]) {
+            deleteLocalFile(category.smallimage);
+            updates.smallimage = `/uploads/${req.files.smallimage[0].filename}`;
+        }
+        const updatedCategory = await Category.findByIdAndUpdate(
+            req.params.id,
+            { $set: updates },
+            { new: true, runValidators: true }
+        );
 
         return res.status(200).json({
             success: true,
-            category
+            updatedCategory
         });
+
     } catch (error) {
+        console.error("UPDATE CATEGORY ERROR:", error);
         return res.status(500).json({
             success: false,
             message: "Failed to update category"
         });
     }
 };
+
 
 /* =========================
    DELETE CATEGORY (SOFT)

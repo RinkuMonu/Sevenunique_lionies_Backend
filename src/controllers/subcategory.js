@@ -1,4 +1,4 @@
-import Category from "../models/category.model.js";
+import { deleteLocalFile } from "../config/multer.js";
 import SubCategory from "../models/subcategory.modal.js";
 
 /* =========================
@@ -17,7 +17,7 @@ export const subcreateCategory = async (req, res) => {
         }
 
         const exists = await SubCategory.findOne({
-            $or: [{ key }, { name }]
+            $or: [{ name }]
         });
 
         if (exists) {
@@ -36,10 +36,7 @@ export const subcreateCategory = async (req, res) => {
             : null;
 
         const category = await SubCategory.create({
-            key,
             name,
-            allowedFilters,
-            attributes,
             bannerimage,
             smallimage
         });
@@ -49,6 +46,7 @@ export const subcreateCategory = async (req, res) => {
             category
         });
     } catch (error) {
+        console.log("sub", error)
         return res.status(500).json({
             success: false,
             message: "Failed to create category"
@@ -77,6 +75,31 @@ export const subgetCategories = async (req, res) => {
         });
     }
 };
+
+
+export const getSubCategoriesByCategory = async (req, res) => {
+    try {
+        const { categoryId } = req.params;
+
+        const subcategories = await SubCategory.find({
+            categoryId: categoryId,
+            isActive: true
+        }).sort({ createdAt: -1 });
+
+        return res.status(200).json({
+            success: true,
+            subcategories
+        });
+
+    } catch (error) {
+        console.log(error)
+        return res.status(500).json({
+            success: false,
+            message: "Failed to fetch subcategories"
+        });
+    }
+};
+
 
 /* =========================
    GET CATEGORY BY ID
@@ -111,23 +134,7 @@ export const subgetCategoryById = async (req, res) => {
 ========================= */
 export const subupdateCategory = async (req, res) => {
     try {
-        const updates = {
-            ...req.body
-        };
-
-        if (req.files?.bannerimage) {
-            updates.bannerimage = `/uploads/${req.files.bannerimage[0].filename}`;
-        }
-
-        if (req.files?.smallimage) {
-            updates.smallimage = `/uploads/${req.files.smallimage[0].filename}`;
-        }
-
-        const category = await SubCategory.findByIdAndUpdate(
-            req.params.id,
-            updates,
-            { new: true, runValidators: true }
-        );
+        const category = await SubCategory.findById(req.params.id);
 
         if (!category) {
             return res.status(404).json({
@@ -135,11 +142,31 @@ export const subupdateCategory = async (req, res) => {
                 message: "Category not found"
             });
         }
+        const updates = {
+            ...req.body
+        };
+
+        if (req.files?.bannerimage?.[0]) {
+            deleteLocalFile(category.bannerimage);
+            updates.bannerimage = `/uploads/${req.files.bannerimage[0].filename}`;
+        }
+
+        if (req.files?.smallimage?.[0]) {
+            deleteLocalFile(category.smallimage);
+            updates.smallimage = `/uploads/${req.files.smallimage[0].filename}`;
+        }
+
+        const updatedCategory = await SubCategory.findByIdAndUpdate(
+            req.params.id,
+            { $set: updates },
+            { new: true, runValidators: true }
+        );
 
         return res.status(200).json({
             success: true,
-            category
+            updatedCategory
         });
+
     } catch (error) {
         return res.status(500).json({
             success: false,

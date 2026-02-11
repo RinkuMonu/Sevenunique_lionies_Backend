@@ -26,7 +26,7 @@ export const createOrder = async (req, res) => {
         product: product._id,
         variant: variant._id,
         name: product.name,
-        color: variant.color,
+        color: variant.color, 
         size: variant.size,
         price: variant.price,
         quantity: i.quantity,
@@ -35,6 +35,7 @@ export const createOrder = async (req, res) => {
 
       // Reduce stock
       variant.stock -= i.quantity;
+      product.saleCount += i.quantity;
       await variant.save();
     }
 

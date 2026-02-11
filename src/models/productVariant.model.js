@@ -21,7 +21,7 @@ const productVariantSchema = new mongoose.Schema({
     default: 10
   },
 
-  images: [String],
+  variantImages: [String],
   isActive: { type: Boolean, default: true }
 }, { timestamps: true });
 
