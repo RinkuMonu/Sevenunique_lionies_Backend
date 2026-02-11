@@ -1,4 +1,6 @@
 import multer from "multer";
+import fs from "fs";
+import path from "path";
 
 const storage = multer.diskStorage({
   destination: "uploads/",
@@ -8,3 +10,18 @@ const storage = multer.diskStorage({
 });
 
 export const upload = multer({ storage });
+
+
+export const deleteLocalFile = (filePath) => {
+  if (!filePath) return;
+
+  const fullPath = path.join(process.cwd(), filePath);
+
+  fs.unlink(fullPath, (err) => {
+    if (err) {
+      console.warn("⚠️ Failed to delete file:", fullPath);
+    } else {
+      console.log("🗑️ Deleted old file:", fullPath);
+    }
+  });
+};

@@ -1,13 +1,14 @@
 import express from "express";
+import cors from "cors";
 import dotenv from "dotenv";
 import connectDB from "./config/db.js";
-import cors from "cors";
-import productRoutes from "./routes/product.routes.js";
+// import productRoutes from "./routes/product.routes.js";
 import adminRoutes from "./routes/admin.routes.js";
 import authRoute from "./routes/auth.route.js";
 import categoryRoute from "./routes/category.routes.js";
 import addvarintRoute from "./routes/addvariantroute.js";
 import subcategoryRoute from "./routes/subcategory.js";
+import redis from "./middlewares/redis.js";
 
 import orderRoutes from "./routes/order.routes.js";
 import contactRoutes from "./routes/contact.routes.js";
@@ -18,8 +19,7 @@ import reviewRoutes from "./routes/review.routes.js";
 import wishlistRoutes from "./routes/wishlist.routes.js";
 import cartRoutes from "./routes/cart.routes.js";
 import couponRoutes from "./routes/coupon.routes.js";
-
-
+import otproute from "./routes/otp.route.js";
 dotenv.config();
 connectDB();
 
@@ -27,12 +27,35 @@ connectDB();
 const app = express();
 app.use(cors());
 app.use(express.json());
-app.use("/uploads", express.static("uploads")); 
+app.get("/", async (req, res) => {
+    return res.json({ message: "well-come lionis" });
+});
+app.get("/health/redis", async (req, res) => {
+    if (!redis) {
+        return res.json({ redis: "disabled by .env" });
+    }
+    try {
+        const start = Date.now();
+        await redis.ping();
+        res.json({
+            redis: "up",
+            latency: `${Date.now() - start}ms`
+        });
+    } catch {
+        res.status(503).json({ redis: "DOWN" });
+    }
+});
+
+app.use("/uploads", express.static("uploads"));
+app.use("/api/otp", otproute);
 app.use("/api/product", adminRoutes);
 app.use("/api/auth", authRoute);
 app.use("/api/category", categoryRoute);
 app.use("/api/subcategory", subcategoryRoute);
 app.use("/api/variant", addvarintRoute);
+
+
+
 
 app.use("/api/order", orderRoutes);
 app.use("/api/contact", contactRoutes);

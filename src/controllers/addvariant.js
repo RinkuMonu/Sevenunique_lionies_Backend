@@ -45,7 +45,7 @@ export const addVariant = async (req, res) => {
         }
 
         // ✅ images
-        const images = req.files
+        const variantImages = req.files
             ? req.files.map(file => `/uploads/${file.filename}`)
             : [];
 
@@ -55,7 +55,7 @@ export const addVariant = async (req, res) => {
             size,
             price,
             stock,
-            images
+            variantImages
         });
 
         return res.status(201).json({

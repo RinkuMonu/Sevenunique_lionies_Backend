@@ -1,0 +1,30 @@
+import Redis from "ioredis";
+
+let redis = null
+
+if (process.env.REDIS_ENABLED == "true") {
+    redis = new Redis({
+        host: "127.0.0.1",
+        port: 6379,
+        enableOfflineQueue: false, //(no api carsh... safe mode)
+        maxRetriesPerRequest: 1,
+        retryStrategy(times) {
+            if (times > 3) {
+                console.error("Redis retry limit reached, stopping retries", times);
+                return null;
+            }
+            return times * 400;
+        }
+    });
+    redis.on("connect", () => {
+        console.log("Redis connected successfully");
+    });
+
+    redis.on("error", (err) => {
+        console.error("Redis connection error:", err.message);
+    });
+} else {
+    console.log("⚠️ Redis disabled by env");
+}
+
+export default redis;

@@ -1,13 +1,13 @@
 import express from "express";
 import { protect } from "../middlewares/auth.middleware.js";
 import { isAdmin } from "../middlewares/role.middleware.js";
-import { createProduct, addVariant, updateProduct, deleteProduct, getProducts } from "../controllers/admin.product.controller.js";
+import { createProduct, addVariant, updateProduct, deleteProduct, getProducts, getFilters, getProductById } from "../controllers/admin.product.controller.js";
 import { upload } from "../config/multer.js";
-import { getProductById } from "../controllers/product.controller.js";
 
 const router = express.Router();
 router.post("/products", protect, isAdmin, upload.single("productImage"), createProduct);
 router.get("/", getProducts);
+router.get("/getfilter", getFilters);
 router.get("/:id", getProductById);
 router.put(
     "/products/:id",

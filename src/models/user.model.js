@@ -4,20 +4,28 @@ import bcrypt from "bcryptjs";
 const userSchema = new mongoose.Schema({
   name: {
     type: String,
-    required: true
   },
-
+  avatar: {
+    type: String,
+  },
   email: {
     type: String,
-    required: true,
     unique: true,
     lowercase: true,
     index: true
   },
+  mobile: {
+    type: String,
+    unique: true,
+    required: true,
+    maxlength: 10,
+    index: true
+
+  },
 
   password: {
     type: String,
-    required: true,
+    // required: true,
     minlength: 6,
     select: false
   },
@@ -27,6 +35,14 @@ const userSchema = new mongoose.Schema({
     enum: ["admin", "user"],
     default: "user",
     index: true
+  },
+  wallet: {
+    type: Number,
+    default: 0
+  },
+  forceLogout: {
+    type: Boolean,
+    default: false
   },
 },
   { timestamps: true });
