@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import dotenv from "dotenv";
 import connectDB from "./config/db.js";
 import productRoutes from "./routes/product.routes.js";
 import adminRoutes from "./routes/admin.routes.js";
@@ -46,7 +47,7 @@ app.get("/health/redis", async (req, res) => {
     }
 });
 
-app.use("/uploads", express.static("uploads")); 
+app.use("/uploads", express.static("uploads"));
 app.use("/api/product", adminRoutes);
 app.use("/api/auth", authRoute);
 app.use("/api/category", categoryRoute);
