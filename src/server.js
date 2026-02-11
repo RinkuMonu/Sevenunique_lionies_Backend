@@ -2,7 +2,7 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import connectDB from "./config/db.js";
-import productRoutes from "./routes/product.routes.js";
+// import productRoutes from "./routes/product.routes.js";
 import adminRoutes from "./routes/admin.routes.js";
 import authRoute from "./routes/auth.route.js";
 import categoryRoute from "./routes/category.routes.js";
@@ -19,8 +19,7 @@ import reviewRoutes from "./routes/review.routes.js";
 import wishlistRoutes from "./routes/wishlist.routes.js";
 import cartRoutes from "./routes/cart.routes.js";
 import couponRoutes from "./routes/coupon.routes.js";
-
-
+import otproute from "./routes/otp.route.js";
 dotenv.config();
 connectDB();
 
@@ -48,11 +47,15 @@ app.get("/health/redis", async (req, res) => {
 });
 
 app.use("/uploads", express.static("uploads"));
+app.use("/api/otp", otproute);
 app.use("/api/product", adminRoutes);
 app.use("/api/auth", authRoute);
 app.use("/api/category", categoryRoute);
 app.use("/api/subcategory", subcategoryRoute);
 app.use("/api/variant", addvarintRoute);
+
+
+
 
 app.use("/api/order", orderRoutes);
 app.use("/api/contact", contactRoutes);

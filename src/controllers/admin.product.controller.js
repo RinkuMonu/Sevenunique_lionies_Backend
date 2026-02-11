@@ -9,14 +9,16 @@ export const createProduct = async (req, res) => {
   try {
     const {
       name,
-      categoryid,
+      category,
+      subCategory,
       basePrice,
+      discountRate,
       isNewArrival,
       isTopRated
     } = req.body;
     console.log(req.body)
 
-    if (!name || !categoryid || !basePrice) {
+    if (!name || !category || !basePrice || !subCategory) {
       return res.status(400).json({
         success: false,
         message: "Name, category,productImage and basePrice are required"
@@ -32,23 +34,13 @@ export const createProduct = async (req, res) => {
     if (req.body.attributes) {
       attributes = { ...req.body.attributes };
     }
-    // ✅ Category exists check
-    const categoryExists = await Category.findOne({
-      _id: categoryid,
-      isActive: true
-    });
-
-    if (!categoryExists) {
-      return res.status(404).json({
-        success: false,
-        message: "Category not found"
-      });
-    }
     // ✅ Product create
     const product = await Product.create({
       name,
-      category: categoryExists.key,
-      basePrice,
+      category,
+      subCategory,
+      basePrice: Number(basePrice),
+      discountRate: Number(discountRate),
       attributes,
       isNewArrival,
       isTopRated,
@@ -87,16 +79,18 @@ export const getProducts = async (req, res) => {
       minPrice,
       maxPrice,
       discount,
-      sort
+      sort,
+      limit,
+      mode,
+      isTrending,
+      isBestSelling,
+      isTopRated
     } = req.query;
+    const isAdminMode = mode === "admin";
 
-    /* =====================
-       PRODUCT LEVEL FILTER
-    ====================== */
     const productFilter = { isActive: true };
-
-    if (category) productFilter.category = category;
-    if (subCategory) productFilter.subCategory = subCategory;
+    if (category) productFilter.category = category.toLowerCase();
+    if (subCategory) productFilter.subCategory = subCategory.toLowerCase();
     if (brand) productFilter.brand = brand;
 
     if (fabric) productFilter["attributes.fabric"] = fabric;
@@ -109,19 +103,35 @@ export const getProducts = async (req, res) => {
     if (discount) {
       productFilter.discountRate = { $gte: Number(discount) };
     }
+    if (isTrending == "true") {
+      productFilter.isTrending = true;
+    }
+    if (isBestSelling == "true") {
+      productFilter.isBestSelling = true;
+    }
+    if (isTopRated == "true") {
+      productFilter.isTopRated = true;
+    }
 
     const products = await Product.find(productFilter);
+
+    if (products.length === 0) {
+      return res.json({ success: true, count: 0, products: [] });
+    }
+
     const productIds = products.map(p => p._id);
+
 
     /* =====================
        VARIANT LEVEL FILTER
     ====================== */
     const variantFilter = {
       productId: { $in: productIds },
-      isActive: true
+      isActive: true,
+      stock: { $gt: 0 }
     };
 
-    if (variantFilter) variantFilter.stock = { $gt: 0 };
+    // if (variantFilter) variantFilter.stock = { $gt: 0 };
     if (color) variantFilter.color = color;
     if (size) variantFilter.size = size;
 
@@ -136,6 +146,11 @@ export const getProducts = async (req, res) => {
     // }
 
     const variants = await ProductVariant.find(variantFilter);
+    // console.log("variants", variants)
+
+    if (variants.length === 0) {
+      return res.json({ success: true, count: 0, products: [] });
+    }
 
     /* =====================
        MAP PRODUCTS
@@ -143,27 +158,46 @@ export const getProducts = async (req, res) => {
     const productMap = {};
 
     variants.forEach(v => {
-      if (!productMap[v.productId]) {
-        productMap[v.productId] = {
+      const pid = v.productId.toString();
+      if (!productMap[pid]) {
+        productMap[pid] = {
           colors: new Set(),
           prices: []
         };
       }
-      productMap[v.productId].colors.add(v.color);
-      productMap[v.productId].prices.push(v.price);
+      productMap[pid].colors.add(v.color);
+      productMap[pid].prices.push(v.price);
     });
 
     let result = products
-      .filter(p => productMap[p._id])
-      .map(p => ({
-        _id: p._id,
-        name: p.name,
-        productImage: p.productImage,
-        brand: p.brand,
-        rating: p.rating,
-        colors: [...productMap[p._id].colors],
-        startingPrice: Math.min(...productMap[p._id].prices)
-      }));
+      .filter(p => isAdminMode || productMap[p._id.toString()])
+      .map(p => {
+        const pid = p._id.toString();
+        const variantData = productMap[pid];
+
+        return {
+          _id: p._id,
+          name: p.name,
+          productImage: p.productImage,
+          brand: p.brand,
+          rating: p.rating,
+          discountRate: p.discountRate,
+          isNewArrival: p.isNewArrival,
+          isTopRated: p.isTopRated,
+          isTrending: p.isTrending,
+          isBestSelling: p.isBestSelling,
+
+          colors: variantData ? [...variantData.colors] : [],
+          startingPrice: variantData
+            ? Math.min(...variantData.prices)
+            : null,
+
+          hasVariants: Boolean(variantData)
+        };
+      });
+    // console.log(result)
+
+
 
     /* =====================
        SORT
@@ -174,6 +208,9 @@ export const getProducts = async (req, res) => {
     if (sort === "price_high") {
       result.sort((a, b) => b.startingPrice - a.startingPrice);
     }
+    if (limit) {
+      result = result.slice(0, Number(limit));
+    }
 
     return res.json({
       success: true,
@@ -182,6 +219,7 @@ export const getProducts = async (req, res) => {
     });
 
   } catch (error) {
+    console.log(error)
     return res.status(500).json({
       success: false,
       message: "Failed to fetch products"
@@ -274,10 +312,6 @@ export const updateProduct = async (req, res) => {
   }
 };
 
-/* =========================
-   DELETE PRODUCT
-   DELETE /api/admin/products/:id
-========================= */
 export const deleteProduct = async (req, res) => {
   try {
     const product = await Product.findByIdAndUpdate(
@@ -311,4 +345,55 @@ export const addVariant = async (req, res) => {
     ...req.body
   });
   res.json(variant);
+};
+
+export const getFilters = async (req, res) => {
+  try {
+    const { categoryId } = req.query;
+
+    // 🔹 ALL PRODUCTS PAGE
+    if (!categoryId) {
+      return res.json({
+        success: true,
+        filters: {
+          allowed: [
+            "price",
+            "brand",
+            "color",
+            "size",
+            "discount",
+            "availability",
+            "rating"
+          ],
+          attributes: {}
+        }
+      });
+    }
+
+    // 🔹 CATEGORY PAGE
+    const category = await Category.findById(categoryId).select(
+      "allowedFilters attributeFilters"
+    );
+
+    if (!category) {
+      return res.status(404).json({
+        success: false,
+        message: "Category not found"
+      });
+    }
+
+    return res.json({
+      success: true,
+      filters: {
+        allowed: category.allowedFilters,
+        attributes: category.attributeFilters
+      }
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch filters"
+    });
+  }
 };

@@ -27,7 +27,7 @@ export const protect = async (req, res, next) => {
 
     // 4️⃣ User fetch from DB (fresh & safe)
     const user = await User.findById(decoded.id).select("_id name email role forceLogout");
-    console.log(user)
+    // console.log(user)
     if (!user) {
       return res.status(401).json({
         success: false,

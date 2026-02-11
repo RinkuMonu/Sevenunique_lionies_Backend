@@ -7,9 +7,9 @@ const categorySchema = new mongoose.Schema(
       unique: true,
       index: true,
       required: true,
-      trim: true
+      trim: true,
     },
-    samllimage: {
+    smallimage: {
       type: String,
       required: true,
     },
@@ -17,6 +17,18 @@ const categorySchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+
+    allowedFilters: {
+      type: [String],
+      default: []
+    },
+
+    attributeFilters: {
+      type: Map,
+      of: [String],
+      default: {}
+    },
+
     isActive: {
       type: Boolean,
       default: true,
