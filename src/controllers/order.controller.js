@@ -3,9 +3,60 @@ import Product from "../models/product.model.js";
 import ProductVariant from "../models/productVariant.model.js";
 
 // CREATE ORDER
+// export const createOrder = async (req, res) => {
+//   try {
+//     const { items, shippingAddress, paymentMethod } = req.body;
+
+//     if (!items || items.length === 0)
+//       return res.status(400).json({ message: "Order items required" });
+
+//     let orderItems = [];
+
+//     for (let i of items) {
+//       const product = await Product.findById(i.product);
+//       const variant = await ProductVariant.findById(i.variant);
+
+//       if (!product || !variant)
+//         return res.status(404).json({ message: "Product or Variant not found" });
+
+//       if (variant.stock < i.quantity)
+//         return res.status(400).json({ message: "Insufficient stock" });
+
+//       orderItems.push({
+//         product: product._id,
+//         variant: variant._id,
+//         name: product.name,
+//         color: variant.color, 
+//         size: variant.size,
+//         price: variant.price,
+//         quantity: i.quantity,
+//         total: variant.price * i.quantity
+//       });
+
+//       // Reduce stock
+//       variant.stock -= i.quantity;
+//       product.saleCount += i.quantity;
+//       await variant.save();
+//     }
+
+//     const order = new Order({
+//       user: req.user.id,
+//       items: orderItems,
+//       shippingAddress,
+//       paymentMethod
+//     });
+
+//     await order.save();
+
+//     res.status(201).json({ message: "Order placed successfully", order });
+//   } catch (error) {
+//     res.status(500).json({ message: "Order creation failed", error: error.message });
+//   }
+// };
+
 export const createOrder = async (req, res) => {
   try {
-    const { items, shippingAddress, paymentMethod } = req.body;
+    const { items, shippingAddress, paymentMethod, coinUsed = 0, coinAmount = 0 } = req.body;
 
     if (!items || items.length === 0)
       return res.status(400).json({ message: "Order items required" });
@@ -26,14 +77,13 @@ export const createOrder = async (req, res) => {
         product: product._id,
         variant: variant._id,
         name: product.name,
-        color: variant.color, 
+        color: variant.color,
         size: variant.size,
         price: variant.price,
         quantity: i.quantity,
         total: variant.price * i.quantity
       });
 
-      // Reduce stock
       variant.stock -= i.quantity;
       product.saleCount += i.quantity;
       await variant.save();
@@ -43,16 +93,26 @@ export const createOrder = async (req, res) => {
       user: req.user.id,
       items: orderItems,
       shippingAddress,
-      paymentMethod
+      paymentMethod,
+      coinUsed,
+      coinAmount
     });
 
     await order.save();
 
-    res.status(201).json({ message: "Order placed successfully", order });
+    res.status(201).json({
+      message: "Order placed successfully",
+      order
+    });
+
   } catch (error) {
-    res.status(500).json({ message: "Order creation failed", error: error.message });
+    res.status(500).json({
+      message: "Order creation failed",
+      error: error.message
+    });
   }
 };
+
 
 // USER ORDERS
 export const getMyOrders = async (req, res) => {
@@ -79,6 +139,25 @@ export const getAllOrders = async (req, res) => {
 };
 
 // ADMIN – UPDATE STATUS
+// export const updateOrderStatus = async (req, res) => {
+//   const { orderStatus, paymentStatus } = req.body;
+
+//   const order = await Order.findById(req.params.id);
+//   if (!order) return res.status(404).json({ message: "Order not found" });
+
+//   if (orderStatus) order.orderStatus = orderStatus;
+//   if (paymentStatus) {
+//     order.paymentStatus = paymentStatus;
+//     if (paymentStatus === "paid") {
+//       order.isPaid = true;
+//       order.paidAt = Date.now();
+//     }
+//   }
+
+//   await order.save();
+//   res.json({ message: "Order updated", order });
+// };
+
 export const updateOrderStatus = async (req, res) => {
   const { orderStatus, paymentStatus } = req.body;
 
@@ -86,17 +165,28 @@ export const updateOrderStatus = async (req, res) => {
   if (!order) return res.status(404).json({ message: "Order not found" });
 
   if (orderStatus) order.orderStatus = orderStatus;
+
   if (paymentStatus) {
     order.paymentStatus = paymentStatus;
+
     if (paymentStatus === "paid") {
       order.isPaid = true;
       order.paidAt = Date.now();
     }
+
+    // 🔥 Refund Case
+    if (paymentStatus === "refunded") {
+      order.isRefunded = true;
+      order.refundOnlineAmount = order.onlineAmount;
+      order.refundCoinAmount = order.coinAmount;
+    }
   }
 
   await order.save();
+
   res.json({ message: "Order updated", order });
 };
+
 
 // ADMIN – DELETE
 export const deleteOrder = async (req, res) => {

@@ -78,8 +78,43 @@ const orderSchema = new mongoose.Schema({
 
   totalAmount: {
     type: Number,
-    required: true
+    required: false
   },
+
+// new filed add 
+
+  coinUsed: {
+    type: Number,
+    default: 0
+  },
+
+  coinAmount: {
+    type: Number,
+    default: 0
+  },
+
+  onlineAmount: {
+    type: Number,
+    default: 0
+  },
+
+  refundOnlineAmount: {
+    type: Number,
+    default: 0
+  },
+
+  refundCoinAmount: {
+    type: Number,
+    default: 0
+  },
+
+  isRefunded: {
+    type: Boolean,
+    default: false
+  },
+
+  //============
+  
 
   isPaid: { type: Boolean, default: false },
   paidAt: Date,
@@ -90,6 +125,8 @@ const orderSchema = new mongoose.Schema({
 orderSchema.pre("save", function (next) {
   this.subtotal = this.items.reduce((sum, item) => sum + item.total, 0);
   this.totalAmount = this.subtotal + this.shippingCharge - this.discount;
+  this.onlineAmount = this.totalAmount - this.coinAmount;
+
   next();
 });
 
