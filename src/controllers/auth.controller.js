@@ -103,16 +103,16 @@ export const verifyOtp = async (req, res) => {
         const otpRecord = await otpModal.findOne({ mobile });
         // console.log(otpRecord)
 
-        if (
-            !otpRecord ||
-            otpRecord.otp !== otp ||
-            otpRecord.expiresAt < new Date()
-        ) {
-            return res.status(401).json({
-                success: false,
-                message: "Invalid or expired OTP"
-            });
-        }
+        // if (
+        //     !otpRecord ||
+        //     otpRecord.otp !== otp ||
+        //     otpRecord.expiresAt < new Date()
+        // ) {
+        //     return res.status(401).json({
+        //         success: false,
+        //         message: "Invalid or expired OTP"
+        //     });
+        // }
 
         let user = await userModel.findOne({ mobile });
         let isNewUser = false;

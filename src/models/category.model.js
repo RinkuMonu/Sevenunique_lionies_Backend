@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import slugify from "slugify";
 
 const categorySchema = new mongoose.Schema(
   {
@@ -8,6 +9,18 @@ const categorySchema = new mongoose.Schema(
       index: true,
       required: true,
       trim: true,
+    },
+    slug: {
+      type: String,
+      unique: true
+    },
+    displayOrder: {
+      type: Number,
+      default: 0// which first show 
+    },
+    showOnHome: {
+      type: Boolean,
+      default: false
     },
     smallimage: {
       type: String,
@@ -37,6 +50,17 @@ const categorySchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+categorySchema.pre("validate", function (next) {
+  if (this.isModified("name")) {
+    this.slug = slugify(this.name, {
+      lower: true,
+      strict: true
+    });
+  }
+  next();
+});
+
 
 const Category = mongoose.model("Category", categorySchema);
 export default Category;

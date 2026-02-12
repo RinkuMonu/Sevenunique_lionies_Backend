@@ -5,6 +5,15 @@ import ProductVariant from "../models/productVariant.model.js";
    ADD VARIANT (ADMIN)
    POST /api/admin/products/:productId/variants
 ========================= */
+
+const generateSKU = (product, color, size) => {
+    const brandCode = "LIO";
+    const categoryCode = product.category.toUpperCase();
+    const colorCode = color.toUpperCase();
+    return `${brandCode}-${categoryCode}-${colorCode}-${size}`;
+};
+
+
 export const addVariant = async (req, res) => {
     try {
         const { productId } = req.params;
@@ -29,7 +38,8 @@ export const addVariant = async (req, res) => {
                 message: "Product not found"
             });
         }
-
+        const sku = generateSKU(product, color, size);
+        console.log(sku)
         // ✅ unique variant check (same color + size)
         const exists = await ProductVariant.findOne({
             productId,
@@ -55,7 +65,8 @@ export const addVariant = async (req, res) => {
             size,
             price,
             stock,
-            variantImages
+            variantImages,
+            sku
         });
 
         return res.status(201).json({
