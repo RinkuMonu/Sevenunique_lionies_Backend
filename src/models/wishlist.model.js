@@ -2,9 +2,9 @@ import mongoose from "mongoose";
 
 const wishlistItemSchema = new mongoose.Schema(
   {
-    product: {
+    variant: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Product",
+      ref: "ProductVariant",
       required: true
     }
   },

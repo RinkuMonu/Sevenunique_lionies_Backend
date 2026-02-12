@@ -1,32 +1,43 @@
 import Cart from "../models/cart.model.js";
-import Product from "../models/product.model.js";
+import ProductVariant from "../models/productVariant.model.js";
 
 /* =========================
    ADD ITEM TO CART
-   POST /api/cart/add
 ========================= */
 export const addItemToCart = async (req, res) => {
   try {
-    const { productId, quantity } = req.body;
+    const { variantId, quantity } = req.body;
     const userId = req.user.id;
 
-    if (!productId || !quantity) {
-      return res.status(400).json({ message: "Product ID and quantity required" });
+    // if (!variantId || !quantity) {
+    //   return res.status(400).json({ message: "Variant ID and quantity required" });
+    // }
+
+    if (!variantId || !quantity) {
+      return res.status(400).json({ message: "Variant ID and quantity required" });
     }
 
-    const product = await Product.findById(productId);
-    if (!product) {
-      return res.status(404).json({ message: "Product not found" });
+    if (quantity < 1 || quantity > 10) {
+      return res.status(400).json({
+        message: "You can add minimum 1 and maximum 10 quantity per item"
+      });
     }
 
-    const price = product.basePrice;
+
+    const variant = await ProductVariant.findById(variantId);
+    if (!variant) {
+      return res.status(404).json({ message: "Variant not found" });
+    }
+
+    const price = variant.price;
+
     let cart = await Cart.findOne({ user: userId });
 
     if (!cart) {
       cart = await Cart.create({
         user: userId,
         items: [{
-          product: productId,
+          variant: variantId,
           quantity,
           price,
           total: price * quantity
@@ -34,15 +45,26 @@ export const addItemToCart = async (req, res) => {
       });
     } else {
       const item = cart.items.find(
-        (i) => i.product.toString() === productId
+        (i) => i.variant.toString() === variantId
       );
 
       if (item) {
-        item.quantity += quantity;
+        const newQuantity = item.quantity + quantity;
+
+        if (newQuantity > 10) {
+          return res.status(400).json({
+            message: "Maximum 10 quantity allowed per item"
+          });
+        }
+
+        item.quantity = newQuantity;
         item.total = item.quantity * item.price;
-      } else {
+      }
+
+
+      else {
         cart.items.push({
-          product: productId,
+          variant: variantId,
           quantity,
           price,
           total: price * quantity
@@ -57,25 +79,35 @@ export const addItemToCart = async (req, res) => {
   }
 };
 
+
 /* =========================
    UPDATE CART ITEM
-   POST /api/cart/update
 ========================= */
 export const updateCartItemQuantity = async (req, res) => {
   try {
-    const { productId, quantity } = req.body;
+    const { variantId, quantity } = req.body;
     const cart = await Cart.findOne({ user: req.user.id });
 
     if (!cart) return res.status(404).json({ message: "Cart not found" });
 
     const item = cart.items.find(
-      (i) => i.product.toString() === productId
+      (i) => i.variant.toString() === variantId
     );
 
-    if (!item) return res.status(404).json({ message: "Product not in cart" });
+    if (!item) return res.status(404).json({ message: "Variant not in cart" });
+
+    // item.quantity = quantity;
+    // item.total = item.price * quantity;
+
+    if (quantity < 1 || quantity > 10) {
+      return res.status(400).json({
+        message: "Quantity must be between 1 and 10"
+      });
+    }
 
     item.quantity = quantity;
     item.total = item.price * quantity;
+
 
     await cart.save();
 
@@ -85,9 +117,9 @@ export const updateCartItemQuantity = async (req, res) => {
   }
 };
 
+
 /* =========================
    REMOVE ITEM
-   POST /api/cart/remove
 ========================= */
 export const removeItemFromCart = async (req, res) => {
   try {
@@ -95,7 +127,7 @@ export const removeItemFromCart = async (req, res) => {
     if (!cart) return res.status(404).json({ message: "Cart not found" });
 
     cart.items = cart.items.filter(
-      (i) => i.product.toString() !== req.body.productId
+      (i) => i.variant.toString() !== req.body.variantId
     );
 
     if (cart.items.length === 0) {
@@ -110,13 +142,19 @@ export const removeItemFromCart = async (req, res) => {
   }
 };
 
+
 /* =========================
    GET CART
-   GET /api/cart
 ========================= */
 export const getCart = async (req, res) => {
   const cart = await Cart.findOne({ user: req.user.id })
-    .populate("items.product", "name productImage basePrice");
+    .populate({
+      path: "items.variant",
+      populate: {
+        path: "productId",
+        select: "name productImage"
+      }
+    });
 
   if (!cart) {
     return res.json({ items: [], totalAmount: 0 });
@@ -125,9 +163,9 @@ export const getCart = async (req, res) => {
   res.json(cart);
 };
 
+
 /* =========================
    CHECKOUT CART
-   POST /api/cart/checkout
 ========================= */
 export const checkoutCart = async (req, res) => {
   const cart = await Cart.findOne({ user: req.user.id });
