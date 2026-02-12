@@ -195,9 +195,6 @@ export const getProducts = async (req, res) => {
           hasVariants: Boolean(variantData)
         };
       });
-    // console.log(result)
-
-
 
     /* =====================
        SORT
@@ -235,10 +232,19 @@ export const getProducts = async (req, res) => {
 ========================= */
 export const getProductById = async (req, res) => {
   try {
-    const product = await Product.findOne({
-      _id: req.params.id,
-      isActive: true
-    });
+    let product
+    if (req.params.id) {
+      product = await Product.findOne({
+        _id: req.params.id,
+        isActive: true
+      });
+    } else {
+      product = await Product.findOne({
+        slug: req.params.slug,
+        isActive: true
+      });
+
+    }
 
     if (!product) {
       return res.status(404).json({
