@@ -35,6 +35,7 @@ const couponUsageSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+
 /* Compound index for per-user limit */
 couponUsageSchema.index({ coupon: 1, user: 1 });
 
