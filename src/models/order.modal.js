@@ -1,96 +1,95 @@
 import mongoose from "mongoose";
 
-const orderItemSchema = new mongoose.Schema({
-  product: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "Product",
-    required: true
+
+const orderSchema = new mongoose.Schema(
+  {
+    customerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true
+    },
+
+    sellerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Seller",
+      required: true
+    },
+
+    riderId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Rider",
+      default: null
+    },
+
+    items: [
+      {
+        productId: mongoose.Schema.Types.ObjectId,
+        variantId: mongoose.Schema.Types.ObjectId,
+        quantity: Number,
+        price: Number
+      }
+    ],
+
+    totalAmount: {
+      type: Number,
+      required: true
+    },
+
+    platformCommission: {
+      type: Number,
+      // required: true
+    },
+
+    sellerAmount: {
+      type: Number,
+      required: true
+    },
+
+    riderAmount: {
+      type: Number,
+      required: true
+    },
+    paymentMethod: {
+      type: String,
+      enum: ["COD", "UPI", "CARD", "NETBANKING"],
+      default: "UPI",
+      required: true
+    },
+    paymentStatus: {
+      type: String,
+      enum: ["pending", "paid", "refunded", "failed"],
+      default: "pending"
+    },
+
+    pgOrderId: String,
+
+    isPaid: { type: Boolean, default: false },
+
+    paidAt: Date,
+    deliveredAt: Date,
+
+    settlementStatus: {
+      type: String,
+      enum: ["locked", "settled", "refunded"],
+      default: "locked"
+    },
+
+    returnEligibleTill: Date,
+    sellerSettledAt: Date,
+    riderSettledAt: Date,
+
+    orderStatus: {
+      type: String,
+      enum: ["placed", "confirmed", "packed", "shipped", "delivered", "cancelled", "returned"],
+      default: "placed"
+    },
+    // shippingAddress: shippingAddressSchema,// ye abi pending hai
   },
-  variant: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "ProductVariant",
-    required: true
-  },
-  name: String,        // snapshot
-  color: String,
-  size: String,
-  price: {
-    type: Number,
-    required: true
-  },
-  quantity: {
-    type: Number,
-    min: 1,
-    required: true
-  },
-  total: {
-    type: Number,
-    required: true
-  }
-}, { _id: false });
-
-const shippingAddressSchema = new mongoose.Schema({
-  fullName: String,
-  mobile: String,
-  address: String,
-  city: String,
-  state: String,
-  pincode: String,
-  country: { type: String, default: "India" }
-}, { _id: false });
-
-const orderSchema = new mongoose.Schema({
-  user: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "User",
-    required: true
-  },
-
-  items: [orderItemSchema],
-
-  shippingAddress: shippingAddressSchema,
-
-  paymentMethod: {
-    type: String,
-    enum: ["COD", "UPI", "CARD", "NETBANKING"],
-    required: true
-  },
-
-  paymentStatus: {
-    type: String,
-    enum: ["pending", "paid", "failed", "refunded"],
-    default: "pending"
-  },
-
-  orderStatus: {
-    type: String,
-    enum: ["pending", "confirmed", "packed", "shipped", "delivered", "cancelled", "returned"],
-    default: "pending"
-  },
-
-  pgOrderId: String,
-  pgPaymentId: String,
-  pgSignature: String,
-
-  subtotal: Number,
-  shippingCharge: { type: Number, default: 0 },
-  discount: { type: Number, default: 0 },
-
-  totalAmount: {
-    type: Number,
-    required: true
-  },
-
-  isPaid: { type: Boolean, default: false },
-  paidAt: Date,
-  deliveredAt: Date
-
-}, { timestamps: true });
-
-orderSchema.pre("save", function (next) {
-  this.subtotal = this.items.reduce((sum, item) => sum + item.total, 0);
-  this.totalAmount = this.subtotal + this.shippingCharge - this.discount;
-  next();
-});
+  { timestamps: true }
+);
+orderSchema.index({ customerId: 1, createdAt: -1 });
+orderSchema.index({ sellerId: 1, orderStatus: 1 });
+orderSchema.index({ riderId: 1, orderStatus: 1 });
+orderSchema.index({ settlementStatus: 1 });
 
 export default mongoose.model("Order", orderSchema);
