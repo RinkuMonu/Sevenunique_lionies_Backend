@@ -10,21 +10,21 @@ const productSchema = new mongoose.Schema({
     unique: true,
   },
   category: {
-    type: String, index: true,
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Category",
+    index: true,
     required: true
-
   },
   subCategory: {
-    type: String, index: true,
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Category",
+    index: true,
     required: true
-
   },
   brand: {
     type: String,
     index: true,
     default: "Lionies",
-    required: true
-    ,
   },
   description: {
     type: String,
@@ -54,73 +54,74 @@ const productSchema = new mongoose.Schema({
     enum: ["draft", "published", "archived"],
     default: "draft"
   },
+  // specifications: {
+
+  //   fabric: String,
+  //   // Example: "100% Cotton", "Denim", "Polyester Blend"
+
+  //   fit: String,
+  //   // Example: "Regular Fit", "Slim Fit", "Oversized"
+
+  //   sleeve: String,
+  //   // Example: "Full Sleeve", "Half Sleeve", "Sleeveless"
+
+  //   collar: String,
+  //   // Example: "Spread Collar", "Mandarin Collar", "Hooded"
+
+  //   pattern: String,
+  //   // Example: "Solid", "Checked", "Striped", "Printed"
+
+  //   occasion: String,
+  //   // Example: "Casual", "Formal", "Party Wear", "Festive"
+
+  //   washCare: String,
+  //   // Example: "Machine Wash", "Hand Wash", "Dry Clean Only"
+
+  //   hemline: String,
+  //   // Example: "Straight", "Curved", "High-Low"
+
+  //   closure: String,
+  //   // Example: "Button", "Zip", "Drawstring"
+
+  //   numberOfPockets: Number,
+  //   // Example: 1, 2, 4
+
+  //   rise: String,
+  //   // Example (Jeans/Lower): "Mid Rise", "High Rise", "Low Rise"
+
+  //   transparency: String,
+  //   // Example: "Opaque", "Semi-Sheer"
+
+  //   stretch: String,
+  //   // Example: "Stretchable", "Non-Stretch"
+
+  //   lining: String,
+  //   // Example: "Fully Lined", "Partially Lined", "No Lining"
+
+  //   weaveType: String,
+  //   // Example: "Woven", "Knitted"
+
+  //   surfaceStyling: String,
+  //   // Example: "Pleated", "Ruffled", "None"
+
+  //   printOrPatternType: String,
+  //   // Example: "Graphic Print", "Floral", "Abstract"
+
+  //   cuff: String,
+  //   // Example: "Button Cuff", "Elastic Cuff"
+
+  //   pocketType: String
+  //   // Example: "Patch Pocket", "Side Pocket", "Welt Pocket"
+  // },
+
+
   specifications: {
-
-    fabric: String,
-    // Example: "100% Cotton", "Denim", "Polyester Blend"
-
-    fit: String,
-    // Example: "Regular Fit", "Slim Fit", "Oversized"
-
-    sleeve: String,
-    // Example: "Full Sleeve", "Half Sleeve", "Sleeveless"
-
-    collar: String,
-    // Example: "Spread Collar", "Mandarin Collar", "Hooded"
-
-    pattern: String,
-    // Example: "Solid", "Checked", "Striped", "Printed"
-
-    occasion: String,
-    // Example: "Casual", "Formal", "Party Wear", "Festive"
-
-    washCare: String,
-    // Example: "Machine Wash", "Hand Wash", "Dry Clean Only"
-
-    hemline: String,
-    // Example: "Straight", "Curved", "High-Low"
-
-    closure: String,
-    // Example: "Button", "Zip", "Drawstring"
-
-    numberOfPockets: Number,
-    // Example: 1, 2, 4
-
-    rise: String,
-    // Example (Jeans/Lower): "Mid Rise", "High Rise", "Low Rise"
-
-    transparency: String,
-    // Example: "Opaque", "Semi-Sheer"
-
-    stretch: String,
-    // Example: "Stretchable", "Non-Stretch"
-
-    lining: String,
-    // Example: "Fully Lined", "Partially Lined", "No Lining"
-
-    weaveType: String,
-    // Example: "Woven", "Knitted"
-
-    surfaceStyling: String,
-    // Example: "Pleated", "Ruffled", "None"
-
-    printOrPatternType: String,
-    // Example: "Graphic Print", "Floral", "Abstract"
-
-    cuff: String,
-    // Example: "Button Cuff", "Elastic Cuff"
-
-    pocketType: String
-    // Example: "Patch Pocket", "Side Pocket", "Welt Pocket"
+    type: Map,
+    of: String
   },
   returnPolicyDays: {
     type: Number,
     default: 7
-  },
-
-  attributes: {
-    type: Map,
-    of: String
   },
   rating: {
     type: Number,

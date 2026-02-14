@@ -1,10 +1,12 @@
 import Product from "../models/product.model.js";
 import ProductVariant from "../models/productVariant.model.js";
 import Category from "../models/category.model.js";
+import SubCategory from "../models/subcategory.modal.js";
 
 /* =========================
    CREATE PRODUCT
 ========================= */
+
 export const createProduct = async (req, res) => {
   try {
     const {
@@ -12,55 +14,145 @@ export const createProduct = async (req, res) => {
       category,
       subCategory,
       basePrice,
-      discountRate,
-      isNewArrival,
-      isTopRated
+      discountRate = 0,
+      description,
+      status = "draft",
+      specifications = {},
+      returnPolicyDays = 7,
+      isNewArrival = true,
+      isTopRated = false,
+      isTrending = false,
+      isBestSelling = false
     } = req.body;
     console.log(req.body)
 
-    if (!name || !category || !basePrice || !subCategory) {
+    /* =====================
+       BASIC VALIDATION
+    ====================== */
+    if (!name || !category || !subCategory || !basePrice || !description) {
       return res.status(400).json({
         success: false,
-        message: "Name, category,productImage and basePrice are required"
+        message:
+          "name, category, subCategory, basePrice and description are required"
       });
     }
+
     if (!req.file) {
       return res.status(400).json({
         success: false,
-        message: "ProductImage  are required"
+        message: "Product image is required"
       });
     }
-    let attributes = {};
-    if (req.body.attributes) {
-      attributes = { ...req.body.attributes };
+
+    if (Number(basePrice) <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Base price must be greater than 0"
+      });
     }
-    // ✅ Product create
+
+    if (discountRate < 0 || discountRate > 90) {
+      return res.status(400).json({
+        success: false,
+        message: "Discount rate must be between 0 and 90"
+      });
+    }
+
+    /* =====================
+       CATEGORY VALIDATION
+    ====================== */
+    const categoryDoc = await Category.findById(category);
+
+    if (!categoryDoc || !categoryDoc.isActive) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid or inactive category"
+      });
+    }
+    const subCategoryDoc = await SubCategory.findOne({
+      _id: subCategory,
+      category
+    });
+
+    if (!subCategoryDoc) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid sub category for selected category"
+      });
+    }
+
+
+    /* =====================
+       SPECIFICATIONS VALIDATION
+       (CATEGORY DRIVEN)
+    ====================== */
+    if (typeof specifications !== "object") {
+      return res.status(400).json({
+        success: false,
+        message: "Specifications must be an object"
+      });
+    }
+
+    // Allowed specs for this category
+    const allowedAttributes = categoryDoc.attributeFilters || new Map();
+
+    for (const key of Object.keys(specifications)) {
+      if (!allowedAttributes.has(key)) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid specification key: ${key}`
+        });
+      }
+
+      const allowedValues = allowedAttributes.get(key);
+
+      if (
+        Array.isArray(allowedValues) &&
+        !allowedValues.includes(specifications[key])
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid value for ${key}: ${specifications[key]}`
+        });
+      }
+    }
+
+    /* =====================
+       CREATE PRODUCT
+    ====================== */
     const product = await Product.create({
-      name,
+      name: name.trim(),
       category,
       subCategory,
+      description,
       basePrice: Number(basePrice),
       discountRate: Number(discountRate),
-      attributes,
+      status,
+      specifications,
+      returnPolicyDays: Number(returnPolicyDays),
       isNewArrival,
       isTopRated,
-      productImage: req.file ? `/uploads/${req.file.filename}` : null
+      isTrending,
+      isBestSelling,
+      productImage: `/uploads/${req.file.filename}`
     });
 
     return res.status(201).json({
       success: true,
-      productId: product._id,
+      message: "Product created successfully",
       product
     });
 
   } catch (error) {
-    console.error(error.message);
+    console.error("CREATE PRODUCT ERROR:", error);
+
     return res.status(500).json({
       success: false,
       message: error.message || "Product creation failed"
     });
   }
 };
+
 
 export const getProducts = async (req, res) => {
   try {
@@ -346,6 +438,11 @@ export const deleteProduct = async (req, res) => {
 };
 
 export const addVariant = async (req, res) => {
+
+  if (!req.body.color || !req.body.size || !req.body.price || !req.params.productId) {
+    return res.status(400).json({ message: "Missing variant fields" });
+  }
+
   const variant = await ProductVariant.create({
     productId: req.params.productId,
     ...req.body
