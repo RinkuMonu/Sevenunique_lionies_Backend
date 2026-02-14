@@ -7,7 +7,9 @@ import {
     addVariant,
     getVariantsByProduct,
     updateVariant,
-    deleteVariant
+    deleteVariant,
+    getVariantById,
+    getAllVariants
 } from "../controllers/addvariant.js";
 
 const addvarintRoute = express.Router();
@@ -17,6 +19,19 @@ addvarintRoute.get(
     "/products/:productId/variants",
     getVariantsByProduct
 );
+
+/* USER */
+addvarintRoute.get("/:id", getVariantById);
+
+
+/* ADMIN */
+addvarintRoute.get(
+  "/admin/variants",
+  protect,
+  isAdmin,
+  getAllVariants
+);
+
 
 /* ADMIN */
 addvarintRoute.post(

@@ -107,6 +107,60 @@ export const getVariantsByProduct = async (req, res) => {
     }
 };
 
+
+/* =========================
+   GET SINGLE VARIANT
+   GET /api/variant/:id
+========================= */
+export const getVariantById = async (req, res) => {
+  try {
+    const variant = await ProductVariant.findById(req.params.id)
+      .populate("productId", "name productImage");
+
+    if (!variant || !variant.isActive) {
+      return res.status(404).json({
+        success: false,
+        message: "Variant not found"
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      variant
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch variant"
+    });
+  }
+};
+
+
+/* =========================
+   GET ALL VARIANTS (ADMIN)
+   GET /api/admin/variants
+========================= */
+export const getAllVariants = async (req, res) => {
+  try {
+    const variants = await ProductVariant.find()
+      .populate("productId", "name")
+      .sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      success: true,
+      count: variants.length,
+      variants
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch variants"
+    });
+  }
+};
+
+
 /* =========================
    UPDATE VARIANT (ADMIN)
    PUT /api/admin/variants/:id
