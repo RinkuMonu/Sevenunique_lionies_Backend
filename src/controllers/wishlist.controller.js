@@ -1,22 +1,21 @@
 import Wishlist from "../models/wishlist.model.js";
-import Product from "../models/product.model.js";
+import ProductVariant from "../models/productVariant.model.js";
 
 /* =========================
    ADD ITEM TO WISHLIST
-   POST /api/wishlist/add
 ========================= */
 export const addItemToWishlist = async (req, res) => {
   try {
-    const { productId } = req.body;
+    const { variantId } = req.body;
     const userId = req.user.id;
 
-    if (!productId) {
-      return res.status(400).json({ message: "Product ID is required" });
+    if (!variantId) {
+      return res.status(400).json({ message: "Variant ID is required" });
     }
 
-    const product = await Product.findById(productId);
-    if (!product) {
-      return res.status(404).json({ message: "Product not found" });
+    const variant = await ProductVariant.findById(variantId);
+    if (!variant) {
+      return res.status(404).json({ message: "Variant not found" });
     }
 
     let wishlist = await Wishlist.findOne({ user: userId });
@@ -24,18 +23,18 @@ export const addItemToWishlist = async (req, res) => {
     if (!wishlist) {
       wishlist = await Wishlist.create({
         user: userId,
-        items: [{ product: productId }]
+        items: [{ variant: variantId }]
       });
     } else {
       const exists = wishlist.items.some(
-        (item) => item.product.toString() === productId
+        (item) => item.variant.toString() === variantId
       );
 
       if (exists) {
-        return res.status(409).json({ message: "Product already in wishlist" });
+        return res.status(409).json({ message: "Variant already in wishlist" });
       }
 
-      wishlist.items.push({ product: productId });
+      wishlist.items.push({ variant: variantId });
       await wishlist.save();
     }
 
@@ -51,13 +50,13 @@ export const addItemToWishlist = async (req, res) => {
   }
 };
 
+
 /* =========================
    REMOVE ITEM FROM WISHLIST
-   POST /api/wishlist/remove
 ========================= */
 export const removeItemFromWishlist = async (req, res) => {
   try {
-    const { productId } = req.body;
+    const { variantId } = req.body;
     const userId = req.user.id;
 
     const wishlist = await Wishlist.findOne({ user: userId });
@@ -66,7 +65,7 @@ export const removeItemFromWishlist = async (req, res) => {
     }
 
     wishlist.items = wishlist.items.filter(
-      (item) => item.product.toString() !== productId
+      (item) => item.variant.toString() !== variantId
     );
 
     await wishlist.save();
@@ -83,14 +82,20 @@ export const removeItemFromWishlist = async (req, res) => {
   }
 };
 
+
 /* =========================
    GET USER WISHLIST
-   GET /api/wishlist
 ========================= */
 export const getWishlist = async (req, res) => {
   try {
     const wishlist = await Wishlist.findOne({ user: req.user.id })
-      .populate("items.product", "name productImage basePrice discountRate");
+      .populate({
+        path: "items.variant",
+        populate: {
+          path: "productId",
+          select: "name productImage"
+        }
+      });
 
     if (!wishlist) {
       return res.status(200).json({
@@ -111,9 +116,9 @@ export const getWishlist = async (req, res) => {
   }
 };
 
+
 /* =========================
    CLEAR WISHLIST
-   DELETE /api/wishlist/clear
 ========================= */
 export const clearWishlist = async (req, res) => {
   try {
