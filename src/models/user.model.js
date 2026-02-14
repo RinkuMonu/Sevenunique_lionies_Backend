@@ -22,23 +22,35 @@ const userSchema = new mongoose.Schema({
     index: true
 
   },
-
   password: {
     type: String,
-    // required: true,
+    required: true,
     minlength: 6,
     select: false
   },
 
   role: {
     type: String,
-    enum: ["admin", "user"],
+    enum: ["superadmin", "seller", "customer", "rider"],
     default: "user",
     index: true
   },
   wallet: {
     type: Number,
     default: 0
+  },
+  isActive: {
+    type: Boolean,
+    default: false
+  },
+  isVerified: {
+    type: Boolean,
+    default: false
+  },
+  requestFor: {
+    type: String,
+    default: "become_a_customer",
+    enum: ["become_a_seller", "become_a_customer", "become_a_rider"]
   },
   forceLogout: {
     type: Boolean,

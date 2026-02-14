@@ -394,3 +394,35 @@ export const updateProfile = async (req, res) => {
     }
 };
 
+
+
+export const getAllUser = async (req, res) => {
+    try {
+        const users = await User.find()
+
+        if (!users) {
+            return res.status(404).json({
+                success: false,
+                message: "User not found"
+            });
+        }
+
+        const responseData = {
+            users,
+        };
+
+
+
+        return res.status(200).json({
+            success: true,
+            ...responseData
+        });
+
+    } catch (error) {
+        console.error("GET PROFILE ERROR:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Failed to fetch profile"
+        });
+    }
+};

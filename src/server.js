@@ -25,7 +25,31 @@ connectDB();
 
 
 const app = express();
-app.use(cors("*"));
+const allowedOrigins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+];
+
+app.use(
+    cors({
+        origin: function (origin, callback) {
+            // allow server-to-server / postman
+            if (!origin) return callback(null, true);
+
+            if (allowedOrigins.includes(origin)) {
+                callback(null, true);
+            } else {
+                callback(new Error("Not allowed by CORS"));
+            }
+        },
+        credentials: true,
+        methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+        allowedHeaders: ["Content-Type", "Authorization"],
+    })
+);
+
+
+// app.use(cors("*"));
 app.use(express.json());
 app.get("/", async (req, res) => {
     return res.json({ message: "well-come lionis" });

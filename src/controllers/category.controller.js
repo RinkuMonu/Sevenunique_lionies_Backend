@@ -7,14 +7,37 @@ import Category from "../models/category.model.js";
 ========================= */
 export const createCategory = async (req, res) => {
     try {
-        const { name, allowedFilters } = req.body;
+        const { name } = req.body;
+        if (!req.files.bannerimage || !req.files.smallimage || !name) {
+            return res.status(400).json({
+                success: false,
+                message: "name, Banner image and small image are required"
+            });
+        }
+
+        console.log(req.file)
         console.log(req.file)
 
         // 🔥 normalize attributeFilters
-        let attributeFilters = {};
-        if (req.body.attributeFilters) {
-            attributeFilters = { ...req.body.attributeFilters };
+        let allowedFilters = [];
+
+        if (req.body.allowedFilters) {
+            allowedFilters =
+                typeof req.body.allowedFilters === "string"
+                    ? JSON.parse(req.body.allowedFilters)
+                    : req.body.allowedFilters;
         }
+
+
+        let attributeFilters = {};
+
+        if (req.body.attributeFilters) {
+            attributeFilters =
+                typeof req.body.attributeFilters === "string"
+                    ? JSON.parse(req.body.attributeFilters)
+                    : req.body.attributeFilters;
+        }
+
 
         if (!name) {
             return res.status(400).json({
@@ -56,7 +79,7 @@ export const createCategory = async (req, res) => {
         console.error(error);
         return res.status(500).json({
             success: false,
-            message: "Failed to create category"
+            message: error.message || "Failed to create category"
         });
     }
 };
