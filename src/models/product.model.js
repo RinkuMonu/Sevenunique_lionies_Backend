@@ -2,6 +2,11 @@ import mongoose from "mongoose";
 import slugify from "slugify";
 
 const productSchema = new mongoose.Schema({
+  sellerId: { type: mongoose.Schema.Types.ObjectId, ref: "Seller", required: true },
+  brandId: { type: mongoose.Schema.Types.ObjectId, ref: "Brand", required: true, },
+  categoryId: { type: mongoose.Schema.Types.ObjectId, ref: "Category", required: true, },
+  subCategoryId: { type: mongoose.Schema.Types.ObjectId, ref: "SubCategory", required: true, },
+
   name: {
     type: String, required: true,
   },
@@ -9,111 +14,25 @@ const productSchema = new mongoose.Schema({
     type: String,
     unique: true,
   },
-  category: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "Category",
-    index: true,
-    required: true
-  },
-  subCategory: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "Category",
-    index: true,
-    required: true
-  },
-  brand: {
-    type: String,
-    index: true,
-    default: "Lionies",
-  },
+
   description: {
     type: String,
-    required: true
-  },
-  productImage: {
-    type: String,
-    required: true
-
-  },
-  basePrice: {
-    type: Number,
     required: true,
-    min: 1
+    minlength: 20,
+    maxlength: 2000
   },
-  finalPrice: {
-    type: Number
-  },// handle by prehook
-  discountRate: {
-    type: Number,
-    default: 0,
-    min: 0,
-    max: 90
+  productImage: [String],
+
+  sizeType: {
+    type: String,
+    enum: ["alpha", "numeric", "free"]
   },
+
   status: {
     type: String,
-    enum: ["draft", "published", "archived"],
-    default: "draft"
+    enum: ["draft", "published", "archived", "rejected", "out-of-stock", "discontinued", "coming-soon", "active", "inactive", "pending", "approved", "flash-sale", "holiday-special", "buy-one-get-one", "limited-time-offer", "anniversary-sale", "price-drop", "special-discount", "coupon-deal", "end-of-season-sale"],
+    default: "pending"
   },
-  // specifications: {
-
-  //   fabric: String,
-  //   // Example: "100% Cotton", "Denim", "Polyester Blend"
-
-  //   fit: String,
-  //   // Example: "Regular Fit", "Slim Fit", "Oversized"
-
-  //   sleeve: String,
-  //   // Example: "Full Sleeve", "Half Sleeve", "Sleeveless"
-
-  //   collar: String,
-  //   // Example: "Spread Collar", "Mandarin Collar", "Hooded"
-
-  //   pattern: String,
-  //   // Example: "Solid", "Checked", "Striped", "Printed"
-
-  //   occasion: String,
-  //   // Example: "Casual", "Formal", "Party Wear", "Festive"
-
-  //   washCare: String,
-  //   // Example: "Machine Wash", "Hand Wash", "Dry Clean Only"
-
-  //   hemline: String,
-  //   // Example: "Straight", "Curved", "High-Low"
-
-  //   closure: String,
-  //   // Example: "Button", "Zip", "Drawstring"
-
-  //   numberOfPockets: Number,
-  //   // Example: 1, 2, 4
-
-  //   rise: String,
-  //   // Example (Jeans/Lower): "Mid Rise", "High Rise", "Low Rise"
-
-  //   transparency: String,
-  //   // Example: "Opaque", "Semi-Sheer"
-
-  //   stretch: String,
-  //   // Example: "Stretchable", "Non-Stretch"
-
-  //   lining: String,
-  //   // Example: "Fully Lined", "Partially Lined", "No Lining"
-
-  //   weaveType: String,
-  //   // Example: "Woven", "Knitted"
-
-  //   surfaceStyling: String,
-  //   // Example: "Pleated", "Ruffled", "None"
-
-  //   printOrPatternType: String,
-  //   // Example: "Graphic Print", "Floral", "Abstract"
-
-  //   cuff: String,
-  //   // Example: "Button Cuff", "Elastic Cuff"
-
-  //   pocketType: String
-  //   // Example: "Patch Pocket", "Side Pocket", "Welt Pocket"
-  // },
-
 
   specifications: {
     type: Map,
@@ -156,13 +75,7 @@ const productSchema = new mongoose.Schema({
   isActive: { type: Boolean, default: true }
 }, { timestamps: true });
 
-productSchema.pre("save", function (next) {
-  if (this.isModified("basePrice") || this.isModified("discountRate")) {
-    this.finalPrice =
-      this.basePrice - (this.basePrice * this.discountRate) / 100;
-  }
-  next();
-});
+
 
 productSchema.pre("validate", async function (next) {
   if (this.isModified("name")) {
@@ -188,5 +101,9 @@ productSchema.pre("validate", async function (next) {
 });
 
 
-productSchema.index({ category: 1, subCategory: 1, brand: 1 });
+productSchema.index({ categoryId: 1, subCategoryId: 1, brandId: 1 });
+productSchema.index({ sellerId: 1 });
+productSchema.index({ name: "text", description: "text" });
+productSchema.index({ rating: -1 });
+
 export default mongoose.model("Product", productSchema);

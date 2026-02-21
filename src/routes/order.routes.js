@@ -8,7 +8,7 @@ import {
   deleteOrder
 } from "../controllers/order.controller.js";
 import { protect } from "../middlewares/auth.middleware.js";
-import { isAdmin } from "../middlewares/role.middleware.js";
+import { isSuperAdmin } from "../middlewares/role.middleware.js";
 
 const router = express.Router();
 
@@ -18,8 +18,8 @@ router.get("/my", protect, getMyOrders);
 router.get("/:id", protect, getOrderById);
 
 // Admin
-router.get("/", protect, isAdmin, getAllOrders);
-router.put("/:id/status", protect, isAdmin, updateOrderStatus);
-router.delete("/:id", protect, isAdmin, deleteOrder);
+router.get("/", protect, isSuperAdmin, getAllOrders);
+router.put("/:id/status", protect, isSuperAdmin, updateOrderStatus);
+router.delete("/:id", protect, isSuperAdmin, deleteOrder);
 
 export default router;

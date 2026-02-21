@@ -20,6 +20,9 @@ import wishlistRoutes from "./routes/wishlist.routes.js";
 import cartRoutes from "./routes/cart.routes.js";
 import couponRoutes from "./routes/coupon.routes.js";
 import otproute from "./routes/otp.route.js";
+import riderkycRoute from "./routes/riderKyc.route.js";
+import sellerkycRoute from "./routes/sellerKyc.route.js";
+import brandRoute from "./routes/brand.route.js";
 dotenv.config();
 connectDB();
 
@@ -70,17 +73,22 @@ app.get("/health/redis", async (req, res) => {
     }
 });
 
+//service routes
 app.use("/uploads", express.static("uploads"));
 app.use("/api/otp", otproute);
-app.use("/api/product", adminRoutes);
+// auth routes
 app.use("/api/auth", authRoute);
+//seller routes
+app.use("/api/seller", sellerkycRoute);
+//rider routes
+app.use("/api/rider", riderkycRoute);
+//product routes
+app.use("/api/brand", brandRoute);
+app.use("/api/product", adminRoutes);
 app.use("/api/category", categoryRoute);
 app.use("/api/subcategory", subcategoryRoute);
 app.use("/api/variant", addvarintRoute);
-
-
-
-
+// other routes
 app.use("/api/order", orderRoutes);
 app.use("/api/contact", contactRoutes);
 app.use("/api/banner", bannerRoutes);

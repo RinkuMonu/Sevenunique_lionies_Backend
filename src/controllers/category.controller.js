@@ -7,35 +7,12 @@ import Category from "../models/category.model.js";
 ========================= */
 export const createCategory = async (req, res) => {
     try {
-        const { name } = req.body;
-        if (!req.files.bannerimage || !req.files.smallimage || !name) {
+        const { name, description } = req.body;
+        if (!req.files.bannerimage || !req.files.smallimage || !name || !description) {
             return res.status(400).json({
                 success: false,
-                message: "name, Banner image and small image are required"
+                message: "name, description,Banner image and small image are required"
             });
-        }
-
-        console.log(req.file)
-        console.log(req.file)
-
-        // 🔥 normalize attributeFilters
-        let allowedFilters = [];
-
-        if (req.body.allowedFilters) {
-            allowedFilters =
-                typeof req.body.allowedFilters === "string"
-                    ? JSON.parse(req.body.allowedFilters)
-                    : req.body.allowedFilters;
-        }
-
-
-        let attributeFilters = {};
-
-        if (req.body.attributeFilters) {
-            attributeFilters =
-                typeof req.body.attributeFilters === "string"
-                    ? JSON.parse(req.body.attributeFilters)
-                    : req.body.attributeFilters;
         }
 
 
@@ -46,9 +23,9 @@ export const createCategory = async (req, res) => {
             });
         }
 
-        const exists = await Category.findOne({
+        const exists = await Category.exists({
             $or: [{ name }]
-        });
+        }).select("_id name").lean();
 
         if (exists) {
             return res.status(409).json({
@@ -64,9 +41,9 @@ export const createCategory = async (req, res) => {
             ? `/uploads/${req.files.smallimage[0].filename}`
             : null;
         const category = await Category.create({
+            createBy: req.user.id,
             name,
-            allowedFilters,
-            attributeFilters,
+            description,
             bannerimage,
             smallimage
         });
@@ -91,7 +68,7 @@ export const createCategory = async (req, res) => {
 ========================= */
 export const getCategories = async (req, res) => {
     try {
-        const categories = await Category.find({ isActive: true }).sort({
+        const categories = await Category.find().sort({
             createdAt: -1
         });
 
@@ -151,6 +128,7 @@ export const updateCategory = async (req, res) => {
         const updates = {};
 
         if (req.body.name) updates.name = req.body.name;
+        if (req.body.description) updates.description = req.body.description;
         if (req.body.allowedFilters) updates.allowedFilters = req.body.allowedFilters;
         if (typeof req.body.attributeFilters === "string") {
             updates.attributeFilters = JSON.parse(req.body.attributeFilters);

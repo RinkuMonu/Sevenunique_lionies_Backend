@@ -269,7 +269,6 @@ const couponSchema = new mongoose.Schema(
    INDEXES FOR PERFORMANCE
 ========================================== */
 
-couponSchema.index({ code: 1 });
 couponSchema.index({ startDate: 1, expiryDate: 1 });
 couponSchema.index({ isActive: 1 });
 

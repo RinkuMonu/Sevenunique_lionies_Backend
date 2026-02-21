@@ -19,9 +19,9 @@ export const deleteLocalFile = (filePath) => {
 
   fs.unlink(fullPath, (err) => {
     if (err) {
-      console.warn("⚠️ Failed to delete file:", fullPath);
+      console.warn("⚠️ Failed to delete file:", err);
     } else {
-      console.log("🗑️ Deleted old file:", fullPath);
+      console.log("🗑️ Deleted old file:", err);
     }
   });
 };

@@ -10,58 +10,45 @@ import SubCategory from "../models/subcategory.modal.js";
 export const createProduct = async (req, res) => {
   try {
     const {
+      brandId,
+      categoryId,
+      subCategoryId,
       name,
-      category,
-      subCategory,
-      basePrice,
-      discountRate = 0,
+      status,
       description,
-      status = "draft",
-      specifications = {},
-      returnPolicyDays = 7,
-      isNewArrival = true,
-      isTopRated = false,
-      isTrending = false,
-      isBestSelling = false
+      specifications = {}
     } = req.body;
     console.log(req.body)
 
     /* =====================
        BASIC VALIDATION
     ====================== */
-    if (!name || !category || !subCategory || !basePrice || !description) {
+    if (!brandId || !categoryId || !subCategoryId || !name || !description) {
       return res.status(400).json({
         success: false,
         message:
-          "name, category, subCategory, basePrice and description are required"
+          "brandId, categoryId, subCategoryId, name, description are required"
+      });
+    }
+    if (["draft", "pending"].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: "Use only 'pending' or 'draft' status for product creation"
       });
     }
 
-    if (!req.file) {
+    if (!req.files || req.files.length === 0) {
       return res.status(400).json({
         success: false,
         message: "Product image is required"
       });
     }
-
-    if (Number(basePrice) <= 0) {
-      return res.status(400).json({
-        success: false,
-        message: "Base price must be greater than 0"
-      });
-    }
-
-    if (discountRate < 0 || discountRate > 90) {
-      return res.status(400).json({
-        success: false,
-        message: "Discount rate must be between 0 and 90"
-      });
-    }
+    const productImage = req.files.map(file => `/uploads/${file.filename}`)
 
     /* =====================
-       CATEGORY VALIDATION
-    ====================== */
-    const categoryDoc = await Category.findById(category);
+     CATEGORY VALIDATION
+  ====================== */
+    const categoryDoc = await Category.findById(categoryId);
 
     if (!categoryDoc || !categoryDoc.isActive) {
       return res.status(400).json({
@@ -70,8 +57,8 @@ export const createProduct = async (req, res) => {
       });
     }
     const subCategoryDoc = await SubCategory.findOne({
-      _id: subCategory,
-      category
+      _id: subCategoryId,
+      categoryId: categoryId
     });
 
     if (!subCategoryDoc) {
@@ -81,11 +68,6 @@ export const createProduct = async (req, res) => {
       });
     }
 
-
-    /* =====================
-       SPECIFICATIONS VALIDATION
-       (CATEGORY DRIVEN)
-    ====================== */
     if (typeof specifications !== "object") {
       return res.status(400).json({
         success: false,
@@ -93,7 +75,6 @@ export const createProduct = async (req, res) => {
       });
     }
 
-    // Allowed specs for this category
     const allowedAttributes = categoryDoc.attributeFilters || new Map();
 
     for (const key of Object.keys(specifications)) {
@@ -121,25 +102,20 @@ export const createProduct = async (req, res) => {
        CREATE PRODUCT
     ====================== */
     const product = await Product.create({
+      sellerId: req.user.id,
+      brandId,
+      categoryId,
+      subCategoryId,
       name: name.trim(),
-      category,
-      subCategory,
       description,
-      basePrice: Number(basePrice),
-      discountRate: Number(discountRate),
-      status,
+      status: status || "pending",
       specifications,
-      returnPolicyDays: Number(returnPolicyDays),
-      isNewArrival,
-      isTopRated,
-      isTrending,
-      isBestSelling,
-      productImage: `/uploads/${req.file.filename}`
+      productImage
     });
 
     return res.status(201).json({
       success: true,
-      message: "Product created successfully",
+      message: "Product created successfully now add variants to make it live",
       product
     });
 

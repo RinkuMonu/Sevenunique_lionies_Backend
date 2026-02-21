@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 const walletSchema = new mongoose.Schema({
     ownerId: {
         type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
         required: true,
         index: true
     },
@@ -12,7 +13,6 @@ const walletSchema = new mongoose.Schema({
         enum: ["customer", "seller", "delivery_partner", "platform"],
         required: true,
         index: true,
-        unique: true
     },
 
     availableBalance: {
@@ -24,7 +24,7 @@ const walletSchema = new mongoose.Schema({
     lockedBalance: {
         type: Number,
         default: 0,
-        min: 0 // orders not delivered yet
+        min: 0 // orders not delivered yet balance locked till 7days after deliver
     },
 
     totalCredited: {

@@ -7,7 +7,6 @@ import {
   checkoutCart
 } from "../controllers/cart.controller.js";
 
-import { isAdmin } from "../middlewares/role.middleware.js";
 import { protect } from "../middlewares/auth.middleware.js";
 
 

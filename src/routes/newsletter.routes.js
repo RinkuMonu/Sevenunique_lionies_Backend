@@ -9,7 +9,7 @@ import {
 } from "../controllers/newsletter.controller.js";
 
 import { protect } from "../middlewares/auth.middleware.js";
-import { isAdmin } from "../middlewares/role.middleware.js";
+import { isSuperAdmin } from "../middlewares/role.middleware.js";
 
 const newsletterRoute = express.Router();
 
@@ -18,9 +18,9 @@ newsletterRoute.post("/", subscribeNewsletter);
 newsletterRoute.put("/unsubscribe", unsubscribeNewsletter);
 
 /* ADMIN */
-newsletterRoute.get("/", protect, isAdmin, getSubscribers);
-newsletterRoute.get("/:id", protect, isAdmin, getSubscriberById);
-newsletterRoute.put("/:id", protect, isAdmin, updateSubscriber);
-newsletterRoute.delete("/:id", protect, isAdmin, deleteSubscriber);
+newsletterRoute.get("/", protect, isSuperAdmin, getSubscribers);
+newsletterRoute.get("/:id", protect, isSuperAdmin, getSubscriberById);
+newsletterRoute.put("/:id", protect, isSuperAdmin, updateSubscriber);
+newsletterRoute.delete("/:id", protect, isSuperAdmin, deleteSubscriber);
 
 export default newsletterRoute;
