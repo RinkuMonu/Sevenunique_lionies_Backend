@@ -1,6 +1,6 @@
 import jwt from "jsonwebtoken";
-import User from "../models/user.model.js";
 import redis from "./redis.js";
+import userModal from "../models/roleWiseModal/user.modal.js";
 
 export const protect = async (req, res, next) => {
   try {
@@ -26,7 +26,7 @@ export const protect = async (req, res, next) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     // 4️⃣ User fetch from DB (fresh & safe)
-    const user = await User.findById(decoded.id).select("_id name email role forceLogout");
+    const user = await userModal.findById(decoded.id).select("_id name email role forceLogout");
     // console.log(user)
     if (!user) {
       return res.status(401).json({

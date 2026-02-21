@@ -15,28 +15,42 @@ const sellerSchema = new mongoose.Schema(
             trim: true
         },
 
-        shopSlug: {
-            type: String,
-            unique: true
-        },
-
         businessType: {
             type: String,
             enum: ["individual", "proprietorship", "partnership", "pvt_ltd"],
             required: true
         },
+        yearOfExperience: {
+            type: String,
+            enum: ["0-1", "1-3", "3-5", "5+"],
+            required: true
+        },
+
+        termsAndConditions: {
+            accepted: { type: Boolean, default: false },
+            acceptedAt: Date,
+            ipAddress: String
+        },
 
         GSTIN: {
             type: String,
-            trim: true
+            trim: true,
+            match: /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/,
+            message: "Invalid GSTIN format",
+            required: function () {
+                return this.businessType !== "individual";
+            }
         },
 
         PAN: {
             type: String,
-            trim: true
+            trim: true,
+            toUpperCase: true,
+            match: /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/,
+            message: "Invalid PAN format"
         },
 
-        shopAddress: {
+        pickupDelivery: {
             street: String,
             city: String,
             state: String,
@@ -51,8 +65,37 @@ const sellerSchema = new mongoose.Schema(
                 default: "Point"
             },
             coordinates: {
-                type: [Number]
+                type: [Number],
+                validate: {
+                    validator: v => v.length === 2,
+                    message: "Coordinates must be [lng, lat]"
+                }
             }
+        },
+
+        shopStatus: {
+            type: String,
+            enum: ["open", "closed", "holiday"],
+            default: "open"
+        },
+
+        workingHours: {
+            open: String,
+            close: String,
+        },
+
+        isTrustedSeller: {
+            type: Boolean,
+            default: false
+        },
+        performance: {
+            lateShipmentRate: Number,
+            onTimeDeliveryRate: Number,
+            customerSatisfaction: Number
+        },
+        returnPolicyDays: {
+            type: Number,
+            default: 7
         },
 
         deliveryRadiusInKm: {
@@ -81,10 +124,36 @@ const sellerSchema = new mongoose.Schema(
         },
 
         kycDocuments: {
-            gstCertificate: String,
-            panCard: String,
-            shopLicense: String,
-            cancelledCheque: String
+            gstCertificate: {
+                type: String,
+                required: function () {
+                    return this.businessType !== "individual";
+                }
+            },
+
+            panCard: {
+                type: String,
+                required: true
+            },
+
+            shopLicense: {
+                type: String,
+                required: true
+            },
+
+            cancelledCheque: {
+                type: String,
+                required: true
+            }
+        },
+        socialAccount: {
+            whatsapp: String,
+            instagram: String,
+            facebook: String,
+            twitter: String,
+            linkedin: String,
+            websiteLink: String,
+            emailId: String
         },
 
         kycStatus: {
@@ -92,6 +161,12 @@ const sellerSchema = new mongoose.Schema(
             enum: ["pending", "verified", "rejected"],
             default: "pending"
         },
+
+        rejectionReason: {
+            type: String,
+            default: ""
+        },
+
 
         isApproved: {
             type: Boolean,
@@ -127,19 +202,22 @@ const sellerSchema = new mongoose.Schema(
 
         status: {
             type: String,
-            enum: ["active", "suspended", "blocked"],
-            default: "active"
+            enum: ["active", "suspended", "blocked", "inprogress"],
+            default: "inprogress"
         },
 
         isOnline: {
             type: Boolean,
             default: false
-        }
+        },
+        kycVerifiedAt: Date,
+        kycRejectedAt: Date,
 
     },
     { timestamps: true }
 );
 
 sellerSchema.index({ geoLocation: "2dsphere" });
+sellerSchema.index({ userId: 1, kycStatus: 1, shopStatus: 1, isApproved: 1, status: 1, isOnline: 1, averageRating: 1, cancellationRate: 1, totalRevenue: 1, totalOrders: 1, totalProducts: 1, createdAt: 1, updatedAt: 1 });
 
 export default mongoose.model("Seller", sellerSchema);
