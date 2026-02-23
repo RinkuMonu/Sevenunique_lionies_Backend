@@ -8,7 +8,7 @@ import {
 } from "../controllers/banner.controller.js";
 
 import { protect } from "../middlewares/auth.middleware.js";
-import { isAdmin } from "../middlewares/role.middleware.js";
+import { isSuperAdmin } from "../middlewares/role.middleware.js";
 import { upload } from "../config/multer.js";
 
 const bannerRoute = express.Router();
@@ -17,7 +17,7 @@ const bannerRoute = express.Router();
 bannerRoute.post(
   "/",
   protect,
-  isAdmin,
+  isSuperAdmin,
   upload.array("images", 5),
   createBanner
 );
@@ -25,7 +25,7 @@ bannerRoute.post(
 bannerRoute.put(
   "/:id",
   protect,
-  isAdmin,
+  isSuperAdmin,
   upload.array("images", 5),
   updateBanner
 );
@@ -34,7 +34,7 @@ bannerRoute.put(
 bannerRoute.delete(
   "/:id",
   protect,
-  isAdmin,
+  isSuperAdmin,
   deleteBanner
 );
 

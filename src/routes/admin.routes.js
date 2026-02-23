@@ -1,19 +1,19 @@
 import express from "express";
 import { protect } from "../middlewares/auth.middleware.js";
-import { isAdmin } from "../middlewares/role.middleware.js";
+import { isSeller } from "../middlewares/role.middleware.js";
 import { createProduct, addVariant, updateProduct, deleteProduct, getProducts, getFilters, getProductById } from "../controllers/admin.product.controller.js";
 import { upload } from "../config/multer.js";
 
 const router = express.Router();
-// router.post("/products", protect, isAdmin, upload.single("productImage"), createProduct);
-router.post("/products", upload.single("productImage"), createProduct);
+// router.post("/products", protect, isSeller, upload.single("productImage"), createProduct);
+router.post("/products", upload.array("productImage"), createProduct);
 router.get("/", getProducts);
 router.get("/getfilter", getFilters);
 router.get("/:id", getProductById);
 router.put(
     "/products/:id",
     protect,
-    isAdmin,
+    isSeller,
     upload.single("productImage"),
     updateProduct
 );
@@ -21,9 +21,9 @@ router.put(
 router.delete(
     "/products/:id",
     protect,
-    isAdmin,
+    isSeller,
     deleteProduct
 );
-router.post("/products/:productId/variants", protect, isAdmin, upload.array("images"), addVariant);
+router.post("/products/:productId/variants", protect, isSeller, upload.array("images"), addVariant);
 
 export default router;

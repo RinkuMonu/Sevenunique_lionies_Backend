@@ -1,8 +1,15 @@
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
+import counterModel from "../counter.model.js";
+import { match } from "assert";
 
 const userSchema = new mongoose.Schema(
     {
+        platformId: {
+            type: String,
+            unique: true,
+            index: true
+        },
 
         name: {
             type: String,
@@ -14,13 +21,15 @@ const userSchema = new mongoose.Schema(
             type: String,
             required: true,
             unique: true,
-            lowercase: true
+            lowercase: true,
+            // match: /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/
         },
 
         mobile: {
-            type: String,
+            type: Number,
             required: true,
-            unique: true
+            unique: true,
+            match: /^[6-9]\d{9}$/
         },
 
         password: {
@@ -29,13 +38,15 @@ const userSchema = new mongoose.Schema(
             select: false
         },
 
-        avatar: String,
+        avatar: {
+            type: String,
+            default: "https://www.clipartmax.com/png/full/144-1442578_flat-person-icon-download-dummy-man.png"
+        },
 
         role: {
             type: String,
             enum: ["superadmin", "customer", "seller", "delivery_partner"],
             default: "customer",
-            index: true
         },
 
         isVerified: {
@@ -53,17 +64,14 @@ const userSchema = new mongoose.Schema(
             default: false
         },
 
-        defaultAddress: {
-            fullAddress: String,
-            city: String,
-            state: String,
-            pincode: String,
-            location: {
-                type: {
-                    type: String,
-                    enum: ["Point"]
-                },
-                coordinates: [Number] // [lng, lat]
+        forceLogout: {
+            type: Boolean,
+            default: false
+        },
+        blockReason: {
+            type: String,
+            required: function () {
+                return this.isBlocked === true
             }
         },
         sessionId: String,
@@ -71,12 +79,12 @@ const userSchema = new mongoose.Schema(
     },
     { timestamps: true }
 );
+userSchema.index({ role: 1 });
+userSchema.index({ isActive: 1 });
+userSchema.index({ isBlocked: 1 });
+userSchema.index({ createdAt: -1 });
+userSchema.index({ name: "text", email: "text", mobile: "Number" });
 
-/* =========================
-   GEO INDEX
-========================= */
-
-userSchema.index({ "defaultAddress.location": "2dsphere" });
 userSchema.pre("save", async function (next) {
     if (!this.isModified("password")) return next();
 
@@ -88,5 +96,27 @@ userSchema.pre("save", async function (next) {
 userSchema.methods.comparePassword = async function (enteredPassword) {
     return await bcrypt.compare(enteredPassword, this.password);
 };
+
+userSchema.pre("validate", async function (next) {
+    if (!this.platformId) {
+        let prefix = "C";
+
+        if (this.role === "seller") prefix = "S";
+        if (this.role === "delivery_partner") prefix = "R";
+        if (this.role === "superadmin") prefix = "A";
+
+        const counter = await counterModel.findOneAndUpdate(
+            { name: `user_${this.role}` },
+            { $inc: { seq: 1 } },
+            { new: true, upsert: true }
+        );
+
+        const paddedSeq = counter.seq.toString().padStart(6, "0");
+
+        this.platformId = `LNS-${prefix}-${paddedSeq}`;
+    }
+
+    next();
+});
 
 export default mongoose.model("User", userSchema);

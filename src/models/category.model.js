@@ -3,6 +3,11 @@ import slugify from "slugify";
 
 const categorySchema = new mongoose.Schema(
   {
+    createBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true
+    },
     name: {
       type: String,
       unique: true,
@@ -10,13 +15,16 @@ const categorySchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    description:{
+      type:String,
+    },
     slug: {
       type: String,
       unique: true
     },
     displayOrder: {
       type: Number,
-      default: 0// which first show 
+      default: 0
     },
     showOnHome: {
       type: Boolean,
@@ -24,22 +32,11 @@ const categorySchema = new mongoose.Schema(
     },
     smallimage: {
       type: String,
-      required: true,
+      // required: true,
     },
     bannerimage: {
       type: String,
-      required: true,
-    },
-
-    allowedFilters: {
-      type: [String],
-      default: []
-    },
-
-    attributeFilters: {
-      type: Map,
-      of: [String],
-      default: {}
+      // required: true,
     },
 
     isActive: {

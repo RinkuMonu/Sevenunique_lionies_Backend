@@ -8,7 +8,7 @@ import {
 } from "../controllers/contact.controller.js";
 
 import { protect } from "../middlewares/auth.middleware.js";
-import { isAdmin } from "../middlewares/role.middleware.js";
+import { isSuperAdmin } from "../middlewares/role.middleware.js";
 
 const contactRoute = express.Router();
 
@@ -16,9 +16,9 @@ const contactRoute = express.Router();
 contactRoute.post("/", createContact);
 
 /* ADMIN */
-contactRoute.get("/", protect, isAdmin, getContacts);
-contactRoute.get("/:id", protect, isAdmin, getContactById);
-contactRoute.put("/:id", protect, isAdmin, updateContactStatus);
-contactRoute.delete("/:id", protect, isAdmin, deleteContact);
+contactRoute.get("/", protect, isSuperAdmin, getContacts);
+contactRoute.get("/:id", protect, isSuperAdmin, getContactById);
+contactRoute.put("/:id", protect, isSuperAdmin, updateContactStatus);
+contactRoute.delete("/:id", protect, isSuperAdmin, deleteContact);
 
 export default contactRoute;

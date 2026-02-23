@@ -1,6 +1,6 @@
 import express from "express";
 import { protect } from "../middlewares/auth.middleware.js";
-import { isAdmin } from "../middlewares/role.middleware.js";
+import { isSuperAdmin } from "../middlewares/role.middleware.js";
 import { upload } from "../config/multer.js";
 import { getSubCategoriesByCategory, subcreateCategory, subdeleteCategory, subgetCategories, subgetCategoryById, subupdateCategory } from "../controllers/subcategory.js";
 
@@ -10,7 +10,7 @@ const subcategoryRoute = express.Router();
 subcategoryRoute.post(
     "/",
     protect,
-    isAdmin,
+    isSuperAdmin,
     upload.fields([
         { name: "bannerimage", maxCount: 1 },
         { name: "smallimage", maxCount: 1 }
@@ -26,7 +26,7 @@ subcategoryRoute.get("/:id", subgetCategoryById);
 subcategoryRoute.put(
     "/:id",
     protect,
-    isAdmin,
+    isSuperAdmin,
     upload.fields([
         { name: "bannerimage", maxCount: 1 },
         { name: "smallimage", maxCount: 1 }
@@ -37,7 +37,7 @@ subcategoryRoute.put(
 subcategoryRoute.delete(
     "/:id",
     protect,
-    isAdmin,
+    isSuperAdmin,
     subdeleteCategory
 );
 

@@ -8,7 +8,7 @@ import {
 } from "../controllers/review.controller.js";
 
 import { protect } from "../middlewares/auth.middleware.js";
-import { isAdmin } from "../middlewares/role.middleware.js";
+import { isSuperAdmin } from "../middlewares/role.middleware.js";
 
 const reviewRoute = express.Router();
 
@@ -21,6 +21,6 @@ reviewRoute.put("/:id", protect, updateReview);
 reviewRoute.get("/product/:productId", getReviewsByProduct);
 
 /* ADMIN */
-reviewRoute.delete("/:id", protect, isAdmin, deleteReview);
+reviewRoute.delete("/:id", protect, isSuperAdmin, deleteReview);
 
 export default reviewRoute;

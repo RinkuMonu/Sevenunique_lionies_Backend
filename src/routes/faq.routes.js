@@ -8,7 +8,7 @@ import {
 } from "../controllers/faq.controller.js";
 
 import { protect } from "../middlewares/auth.middleware.js";
-import { isAdmin } from "../middlewares/role.middleware.js";
+import { isSuperAdmin } from "../middlewares/role.middleware.js";
 
 const faqRoute = express.Router();
 
@@ -17,8 +17,8 @@ faqRoute.get("/", getFAQs);
 faqRoute.get("/:id", getFAQById);
 
 /* ADMIN */
-faqRoute.post("/", protect, isAdmin, createFAQ);
-faqRoute.put("/:id", protect, isAdmin, updateFAQ);
-faqRoute.delete("/:id", protect, isAdmin, deleteFAQ);
+faqRoute.post("/", protect, isSuperAdmin, createFAQ);
+faqRoute.put("/:id", protect, isSuperAdmin, updateFAQ);
+faqRoute.delete("/:id", protect, isSuperAdmin, deleteFAQ);
 
 export default faqRoute;
