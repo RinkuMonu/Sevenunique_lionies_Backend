@@ -24,6 +24,13 @@ const contactSchema = new mongoose.Schema(
       type: String,
       required: true
     },
+
+    source: {
+      type: String,
+      enum: ["website", "panel"],
+      default: "website",
+      index: true
+    },
     status: {
       type: String,
       enum: ["new", "read", "replied"],

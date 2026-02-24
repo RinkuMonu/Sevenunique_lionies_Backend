@@ -5,12 +5,19 @@ import Banner from "../models/banner.model.js";
 ========================= */
 export const createBanner = async (req, res) => {
     try {
-        const { bannerName, description, deviceType, position } = req.body;
+        const { bannerName, description, deviceType, position, category, subcategory } = req.body;
 
         if (!bannerName) {
             return res.status(400).json({
                 success: false,
                 message: "Banner name is required",
+            });
+        }
+
+             if (!category) {
+            return res.status(400).json({
+                success: false,
+                message: "Category is required",
             });
         }
 
@@ -29,6 +36,8 @@ export const createBanner = async (req, res) => {
             description,
             deviceType,
             position,
+            category,
+            subcategory: subcategory || null,
             images,
             addedBy: req.user.id,
         });
@@ -64,7 +73,10 @@ export const getBanners = async (req, res) => {
             filter.position = position;
         }
 
-        const banners = await Banner.find(filter).sort({ createdAt: -1 });
+        const banners = await Banner.find(filter)
+        .populate("category", "name slug")
+        .populate("subcategory", "name slug")
+        .sort({ createdAt: -1 });
 
         return res.status(200).json({
             success: true,
