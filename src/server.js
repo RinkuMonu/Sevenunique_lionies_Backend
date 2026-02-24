@@ -23,6 +23,7 @@ import otproute from "./routes/otp.route.js";
 import riderkycRoute from "./routes/riderKyc.route.js";
 import sellerkycRoute from "./routes/sellerKyc.route.js";
 import brandRoute from "./routes/brand.route.js";
+import wearRoute from "./routes/wearType.route.js";
 dotenv.config();
 connectDB();
 
@@ -83,6 +84,7 @@ app.use("/api/seller", sellerkycRoute);
 //rider routes
 app.use("/api/rider", riderkycRoute);
 //product routes
+app.use("/api/wear/type", wearRoute);
 app.use("/api/brand", brandRoute);
 app.use("/api/product", adminRoutes);
 app.use("/api/category", categoryRoute);

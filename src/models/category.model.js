@@ -8,6 +8,12 @@ const categorySchema = new mongoose.Schema(
       ref: "User",
       required: true
     },
+    wearTypeId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "WearType",
+      required: true,
+      index: true
+    },
     name: {
       type: String,
       unique: true,
@@ -15,8 +21,8 @@ const categorySchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
-    description:{
-      type:String,
+    description: {
+      type: String,
     },
     slug: {
       type: String,

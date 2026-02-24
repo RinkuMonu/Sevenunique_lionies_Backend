@@ -13,17 +13,11 @@ const productVariantSchema = new mongoose.Schema({
     type: String,
     required: true
   },
-  color: {
-    type: String,
-    required: true,
-    trim: true,
-    lowercase: true
-  },
-  size: {
-    type: String,
-    required: true,
-    trim: true,
-    lowercase: true
+
+  attributes: {
+    type: Map,
+    of: String,
+    required: true
   },
 
   pricing: {
@@ -34,18 +28,17 @@ const productVariantSchema = new mongoose.Schema({
     },
     sellingPrice: {
       type: Number,
-      required: true,
       min: 1  // 900
     },
     discountPercent: {
       type: Number,
       required: true, // form seller input
-      min: 1 // 10 % = 100
+      min: 0,
+      max: 90 // 10 % = 100
     },
     settledAmount: {
       type: Number,
-      required: true,
-      min: 1 //selleingPrice - paltform fee100 + delivery50  = 750
+      min: 0 //selleingPrice - paltform fee100 + delivery50  = 750
     },
     platformFeePercent: {
       type: Number,
@@ -70,7 +63,10 @@ const productVariantSchema = new mongoose.Schema({
   isActive: { type: Boolean, default: true, index: true, }
 }, { timestamps: true });
 productVariantSchema.index({ productId: 1 });
-productVariantSchema.index({ productId: 1, size: 1, color: 1 }, { unique: true });
+productVariantSchema.index(
+  { productId: 1, "attributes.size": 1, "attributes.color": 1 },
+  { unique: true }
+);
 productVariantSchema.index({ "pricing.sellingPrice": 1 });
 productVariantSchema.index({ productId: 1, stock: 1 }, { partialFilterExpression: { stock: { $gt: 0 } } });
 
@@ -81,9 +77,10 @@ productVariantSchema.pre("validate", function (next) {
     this.isModified("pricing.mrp") ||
     this.isModified("pricing.discountPercent")
   ) {
-    this.pricing.sellingPrice =
+    this.pricing.sellingPrice = Number(
       this.pricing.mrp -
-      (this.pricing.mrp * this.pricing.discountPercent) / 100;
+      (this.pricing.mrp * this.pricing.discountPercent) / 100
+    ).toFixed(2)
   }
 
   const platformFeeAmount =
@@ -94,10 +91,27 @@ productVariantSchema.pre("validate", function (next) {
     (this.pricing.sellingPrice *
       this.pricing.taxPercent) / 100;
 
-  this.pricing.settledAmount =
+  this.pricing.settledAmount = Number(
     this.pricing.sellingPrice -
     platformFeeAmount -
-    taxAmount;
+    taxAmount).toFixed(2)
+
+  next();
+});
+productVariantSchema.pre("validate", function (next) {
+
+  if (this.attributes instanceof Map) {
+    const lowerCaseMap = new Map();
+
+    for (let [key, value] of this.attributes.entries()) {
+      lowerCaseMap.set(
+        key.toLowerCase(),
+        value.toLowerCase().trim()
+      );
+    }
+
+    this.attributes = lowerCaseMap;
+  }
 
   next();
 });

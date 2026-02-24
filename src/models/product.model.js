@@ -6,6 +6,7 @@ const productSchema = new mongoose.Schema({
   brandId: { type: mongoose.Schema.Types.ObjectId, ref: "Brand", required: true, },
   categoryId: { type: mongoose.Schema.Types.ObjectId, ref: "Category", required: true, },
   subCategoryId: { type: mongoose.Schema.Types.ObjectId, ref: "SubCategory", required: true, },
+  wearTypeId: { type: mongoose.Schema.Types.ObjectId, ref: "ProductWearType", required: true, },
 
   name: {
     type: String, required: true,
@@ -74,32 +75,6 @@ const productSchema = new mongoose.Schema({
   },
   isActive: { type: Boolean, default: true }
 }, { timestamps: true });
-
-
-
-productSchema.pre("validate", async function (next) {
-  if (this.isModified("name")) {
-
-    let baseSlug = slugify(this.name, {
-      lower: true,
-      strict: true
-    });
-
-    let slug = baseSlug;
-    let counter = 1;
-
-    const Product = this.constructor;
-
-    while (await Product.exists({ slug, _id: { $ne: this._id } })) {
-      slug = `${baseSlug}-${counter++}`;
-    }
-
-    this.slug = slug;
-  }
-
-  next();
-});
-
 
 productSchema.index({ categoryId: 1, subCategoryId: 1, brandId: 1 });
 productSchema.index({ sellerId: 1 });

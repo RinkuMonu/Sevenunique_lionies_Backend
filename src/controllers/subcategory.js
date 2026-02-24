@@ -85,7 +85,7 @@ export const subcreateCategory = async (req, res) => {
         console.log("SUBCATEGORY CREATE ERROR", error);
         return res.status(500).json({
             success: false,
-            message: "Failed to create subcategory"
+            message: error.message || "Failed to create subcategory"
         });
     }
 };
