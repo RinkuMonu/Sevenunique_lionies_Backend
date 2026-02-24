@@ -6,7 +6,7 @@ import Contact from "../models/contact.model.js";
 ========================= */
 export const createContact = async (req, res) => {
   try {
-    const { name, email, mobile, subject, message } = req.body;
+    const { name, email, mobile, subject, message , source  } = req.body;
 
     if (!name || !email || !subject || !message) {
       return res.status(400).json({
@@ -20,7 +20,8 @@ export const createContact = async (req, res) => {
       email,
       mobile,
       subject,
-      message
+      message,
+      source 
     });
 
     return res.status(201).json({

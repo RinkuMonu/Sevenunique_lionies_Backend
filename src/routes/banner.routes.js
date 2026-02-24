@@ -38,6 +38,7 @@ bannerRoute.delete(
   deleteBanner
 );
 
+
 /* PUBLIC */
 bannerRoute.get("/", getBanners);
 bannerRoute.get("/:id", getBannerById);

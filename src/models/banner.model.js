@@ -38,6 +38,22 @@ const bannerSchema = new mongoose.Schema(
       index: true,
     },
 
+       /* ✅ NEW FIELD - CATEGORY (REQUIRED) */
+    category: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Category",
+      required: true,
+      index: true,
+    },
+
+    /* ✅ NEW FIELD - SUBCATEGORY (OPTIONAL) */
+    subcategory: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "SubCategory",
+      default: null,
+      index: true,
+    },
+
     isActive: {
       type: Boolean,
       default: true,
