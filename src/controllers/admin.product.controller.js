@@ -2,7 +2,33 @@ import Product from "../models/product.model.js";
 import ProductVariant from "../models/productVariant.model.js";
 import Category from "../models/category.model.js";
 import SubCategory from "../models/subcategory.modal.js";
+import brandModal from "../models/brand.modal.js";
+import slugify from "slugify";
 
+
+
+const generateProductSlug = async (name, productId = null) => {
+
+  const baseSlug = slugify(name, {
+    lower: true,
+    strict: true,
+    trim: true
+  });
+
+  let slug = baseSlug;
+  let counter = 1;
+
+  while (
+    await Product.exists({
+      slug,
+      ...(productId && { _id: { $ne: productId } })
+    }).select("slug").lean()
+  ) {
+    slug = `${baseSlug}-${counter++}`;
+  }
+
+  return slug;
+};
 /* =========================
    CREATE PRODUCT
 ========================= */
@@ -13,12 +39,13 @@ export const createProduct = async (req, res) => {
       brandId,
       categoryId,
       subCategoryId,
+      wearTypeId,
       name,
       status,
       description,
       specifications = {}
     } = req.body;
-    console.log(req.body)
+
 
     /* =====================
        BASIC VALIDATION
@@ -30,7 +57,8 @@ export const createProduct = async (req, res) => {
           "brandId, categoryId, subCategoryId, name, description are required"
       });
     }
-    if (["draft", "pending"].includes(status)) {
+    const validStatus = status || "pending";
+    if (!["draft", "pending"].includes(validStatus)) {
       return res.status(400).json({
         success: false,
         message: "Use only 'pending' or 'draft' status for product creation"
@@ -48,7 +76,11 @@ export const createProduct = async (req, res) => {
     /* =====================
      CATEGORY VALIDATION
   ====================== */
-    const categoryDoc = await Category.findById(categoryId);
+    const [categoryDoc, subCategoryDoc, brandExist] = await Promise.all([
+      Category.findById(categoryId),
+      SubCategory.findOne({ _id: subCategoryId, categoryId }),
+      brandModal.findOne({ _id: brandId, isActive: true })
+    ]);
 
     if (!categoryDoc || !categoryDoc.isActive) {
       return res.status(400).json({
@@ -56,44 +88,75 @@ export const createProduct = async (req, res) => {
         message: "Invalid or inactive category"
       });
     }
-    const subCategoryDoc = await SubCategory.findOne({
-      _id: subCategoryId,
-      categoryId: categoryId
-    });
-
     if (!subCategoryDoc) {
       return res.status(400).json({
         success: false,
         message: "Invalid sub category for selected category"
       });
     }
+    console.log(brandExist)
+    if (!brandExist) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid brand or inactive"
+      });
+    }
 
-    if (typeof specifications !== "object") {
+    let parsedSpecifications = specifications;
+
+    if (typeof specifications === "string") {
+      try {
+        parsedSpecifications = JSON.parse(specifications);
+      } catch {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid JSON format in specifications"
+        });
+      }
+    }
+
+    if (
+      !parsedSpecifications ||
+      typeof parsedSpecifications !== "object" ||
+      Array.isArray(parsedSpecifications)
+    ) {
       return res.status(400).json({
         success: false,
         message: "Specifications must be an object"
       });
     }
 
-    const allowedAttributes = categoryDoc.attributeFilters || new Map();
+    const allowedAttributes = subCategoryDoc.attributes || new Map();
 
-    for (const key of Object.keys(specifications)) {
-      if (!allowedAttributes.has(key)) {
+    for (const key of Object.keys(parsedSpecifications)) {
+
+      const attributeConfig = allowedAttributes.get(key);
+      console.log(attributeConfig)
+
+      if (!attributeConfig) {
         return res.status(400).json({
           success: false,
           message: `Invalid specification key: ${key}`
         });
       }
 
-      const allowedValues = allowedAttributes.get(key);
-
       if (
-        Array.isArray(allowedValues) &&
-        !allowedValues.includes(specifications[key])
+        attributeConfig.values?.length &&
+        !attributeConfig.values.includes(parsedSpecifications[key])
       ) {
         return res.status(400).json({
           success: false,
-          message: `Invalid value for ${key}: ${specifications[key]}`
+          message: `Invalid value for ${key}: ${parsedSpecifications[key]}`
+        });
+      }
+
+    }
+
+    for (const [key, config] of allowedAttributes.entries()) {
+      if (config.required && !parsedSpecifications[key]) {
+        return res.status(400).json({
+          success: false,
+          message: `${key} is required`
         });
       }
     }
@@ -101,15 +164,18 @@ export const createProduct = async (req, res) => {
     /* =====================
        CREATE PRODUCT
     ====================== */
+    const slug = await generateProductSlug(req.body.name);
     const product = await Product.create({
       sellerId: req.user.id,
+      wearTypeId,
       brandId,
       categoryId,
       subCategoryId,
       name: name.trim(),
+      slug,
       description,
-      status: status || "pending",
-      specifications,
+      status: validStatus,
+      specifications: parsedSpecifications,
       productImage
     });
 
@@ -138,154 +204,219 @@ export const getProducts = async (req, res) => {
       brand,
       color,
       size,
-      fabric,
-      fit,
-      occasion,
-      sleeve,
-      neck,
-      type,
       minPrice,
       maxPrice,
-      discount,
       sort,
-      limit,
-      mode,
+      page = 1,
+      limit = 10,
       isTrending,
       isBestSelling,
       isTopRated
     } = req.query;
-    const isAdminMode = mode === "admin";
 
-    const productFilter = { isActive: true };
-    if (category) productFilter.category = category.toLowerCase();
-    if (subCategory) productFilter.subCategory = subCategory.toLowerCase();
-    if (brand) productFilter.brand = brand;
+    const isPrivileged =
+      req.user?.role === "superAdmin" ||
+      req.user?.role === "seller";
 
-    if (fabric) productFilter["attributes.fabric"] = fabric;
-    if (fit) productFilter["attributes.fit"] = fit;
-    if (occasion) productFilter["attributes.occasion"] = occasion;
-    if (sleeve) productFilter["attributes.sleeve"] = sleeve;
-    if (neck) productFilter["attributes.neck"] = neck;
-    if (type) productFilter["attributes.type"] = type;
+    const pageNumber = Number(page);
+    const pageSize = Number(limit);
+    const skip = (pageNumber - 1) * pageSize;
 
-    if (discount) {
-      productFilter.discountRate = { $gte: Number(discount) };
+    /* ---------------- PRODUCT MATCH ---------------- */
+
+    const productMatch = { isActive: true };
+
+    if (category)
+      productMatch.categoryId = new mongoose.Types.ObjectId(category);
+
+    if (subCategory)
+      productMatch.subCategoryId = new mongoose.Types.ObjectId(subCategory);
+
+    if (brand)
+      productMatch.brandId = new mongoose.Types.ObjectId(brand);
+
+    if (isTrending === "true") productMatch.isTrending = true;
+    if (isBestSelling === "true") productMatch.isBestSelling = true;
+    if (isTopRated === "true") productMatch.isTopRated = true;
+
+    /* ---------------- VARIANT MATCH ---------------- */
+
+    const variantMatch = {};
+
+    // 👤 CUSTOMER
+    if (!isPrivileged) {
+      variantMatch.isActive = true;
+      variantMatch.stock = { $gt: 0 };
     }
-    if (isTrending == "true") {
-      productFilter.isTrending = true;
-    }
-    if (isBestSelling == "true") {
-      productFilter.isBestSelling = true;
-    }
-    if (isTopRated == "true") {
-      productFilter.isTopRated = true;
-    }
 
-    const products = await Product.find(productFilter);
+    if (color)
+      variantMatch["attributes.color"] = color.toLowerCase();
 
-    if (products.length === 0) {
-      return res.json({ success: true, count: 0, products: [] });
-    }
-
-    const productIds = products.map(p => p._id);
-
-
-    /* =====================
-       VARIANT LEVEL FILTER
-    ====================== */
-    const variantFilter = {
-      productId: { $in: productIds },
-      isActive: true,
-      stock: { $gt: 0 }
-    };
-
-    // if (variantFilter) variantFilter.stock = { $gt: 0 };
-    if (color) variantFilter.color = color;
-    if (size) variantFilter.size = size;
+    if (size)
+      variantMatch["attributes.size"] = size.toLowerCase();
 
     if (minPrice || maxPrice) {
-      variantFilter.price = {};
-      if (minPrice) variantFilter.price.$gte = Number(minPrice);
-      if (maxPrice) variantFilter.price.$lte = Number(maxPrice);
+      variantMatch["pricing.sellingPrice"] = {};
+      if (minPrice)
+        variantMatch["pricing.sellingPrice"].$gte = Number(minPrice);
+      if (maxPrice)
+        variantMatch["pricing.sellingPrice"].$lte = Number(maxPrice);
     }
 
-    // if (inStock === "true") {
-    //   variantFilter.stock = { $gt: 0 };
-    // }
+    /* ---------------- PIPELINE ---------------- */
 
-    const variants = await ProductVariant.find(variantFilter);
-    // console.log("variants", variants)
+    const pipeline = [
 
-    if (variants.length === 0) {
-      return res.json({ success: true, count: 0, products: [] });
-    }
+      { $match: productMatch },
 
-    /* =====================
-       MAP PRODUCTS
-    ====================== */
-    const productMap = {};
+      /* ---------- VARIANTS LOOKUP ---------- */
 
-    variants.forEach(v => {
-      const pid = v.productId.toString();
-      if (!productMap[pid]) {
-        productMap[pid] = {
-          colors: new Set(),
-          prices: []
-        };
+      {
+        $lookup: {
+          from: "productvariants",
+          let: { productId: "$_id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: { $eq: ["$productId", "$$productId"] },
+                ...variantMatch
+              }
+            },
+            {
+              $project: {
+                sellingPrice: "$pricing.sellingPrice",
+                color: "$attributes.color"
+              }
+            }
+          ],
+          as: "variants"
+        }
+      },
+
+      /* ---------- CUSTOMER → REMOVE EMPTY PRODUCTS ---------- */
+
+      // ...(!isPrivileged
+      //   ? [{ $match: { variants: { $ne: [] } } }]
+      //   : []),
+
+      /* ---------- CATEGORY LOOKUP ---------- */
+
+      {
+        $lookup: {
+          from: "categories",
+          localField: "categoryId",
+          foreignField: "_id",
+          as: "category"
+        }
+      },
+      {
+        $unwind: {
+          path: "$category",
+          preserveNullAndEmptyArrays: true
+        }
+      },
+      // subcategory
+      {
+        $lookup: {
+          from: "subcategories",
+          localField: "subCategoryId",
+          foreignField: "_id",
+          as: "subCategory"
+        }
+      },
+      {
+        $unwind: {
+          path: "$subCategory",
+          preserveNullAndEmptyArrays: true
+        }
+      },
+
+      /* ---------- BRAND LOOKUP ---------- */
+
+      {
+        $lookup: {
+          from: "brands",
+          localField: "brandId",
+          foreignField: "_id",
+          as: "brand"
+        }
+      },
+      {
+        $unwind: {
+          path: "$brand",
+          preserveNullAndEmptyArrays: true
+        }
+      },
+
+      /* ---------- CALCULATED FIELDS ---------- */
+
+      {
+        $addFields: {
+          startingPrice: { $min: "$variants.sellingPrice" },
+          colors: { $setUnion: [[], "$variants.color"] },
+          totalVariants: { $size: "$variants" },
+          hasVariants: { $gt: [{ $size: "$variants" }, 0] }
+        }
+      },
+
+      /* ---------- RESPONSE SHAPE ---------- */
+
+      {
+        $project: {
+          name: 1,
+          productImage: 1,
+
+          category: "$category.name",
+          brand: "$brand.name",
+          sizeType: "$subCategory.sizeType",
+
+          rating: 1,
+          isNewArrival: 1,
+          isTrending: 1,
+          isBestSelling: 1,
+          isTopRated: 1,
+
+          startingPrice: 1,
+          colors: 1,
+          totalVariants: 1,
+          hasVariants: 1
+        }
       }
-      productMap[pid].colors.add(v.color);
-      productMap[pid].prices.push(v.price);
+    ];
+
+    /* ---------------- SORT ---------------- */
+
+    if (sort === "price_low")
+      pipeline.push({ $sort: { startingPrice: 1 } });
+
+    if (sort === "price_high")
+      pipeline.push({ $sort: { startingPrice: -1 } });
+
+    /* ---------------- PAGINATION ---------------- */
+
+    pipeline.push({
+      $facet: {
+        data: [{ $skip: skip }, { $limit: pageSize }],
+        totalCount: [{ $count: "count" }]
+      }
     });
 
-    let result = products
-      .filter(p => isAdminMode || productMap[p._id.toString()])
-      .map(p => {
-        const pid = p._id.toString();
-        const variantData = productMap[pid];
+    const result = await Product.aggregate(pipeline);
 
-        return {
-          _id: p._id,
-          name: p.name,
-          productImage: p.productImage,
-          brand: p.brand,
-          rating: p.rating,
-          discountRate: p.discountRate,
-          isNewArrival: p.isNewArrival,
-          isTopRated: p.isTopRated,
-          isTrending: p.isTrending,
-          isBestSelling: p.isBestSelling,
-
-          colors: variantData ? [...variantData.colors] : [],
-          startingPrice: variantData
-            ? Math.min(...variantData.prices)
-            : null,
-
-          hasVariants: Boolean(variantData)
-        };
-      });
-
-    /* =====================
-       SORT
-    ====================== */
-    if (sort === "price_low") {
-      result.sort((a, b) => a.startingPrice - b.startingPrice);
-    }
-    if (sort === "price_high") {
-      result.sort((a, b) => b.startingPrice - a.startingPrice);
-    }
-    if (limit) {
-      result = result.slice(0, Number(limit));
-    }
+    const products = result[0].data;
+    const totalCount = result[0].totalCount[0]?.count || 0;
 
     return res.json({
       success: true,
-      count: result.length,
-      products: result
+      count: totalCount,
+      currentPage: pageNumber,
+      totalPages: Math.ceil(totalCount / pageSize),
+      products
     });
 
   } catch (error) {
-    console.log(error)
-    return res.status(500).json({
+    console.error(error);
+    res.status(500).json({
       success: false,
       message: "Failed to fetch products"
     });
@@ -347,25 +478,48 @@ export const getProductById = async (req, res) => {
 ========================= */
 export const updateProduct = async (req, res) => {
   try {
-    const updates = {
-      ...req.body
-    };
+    const productId = req.params.id;
+    let status = req.body.status || "pending";
+    const updates = {};
+    if (req.user.role === "seller") {
 
-    // 🔥 attributes normalize (important)
-    if (req.body.attributes) {
-      updates.attributes = { ...req.body.attributes };
+      if (status === "draft") {
+        status = "draft";
+      } else if (status === "submit") {
+        status = "pending";
+      } else if (status === "active") {
+        status = "active"
+      } else if (status === "inactive") {
+        status = "inactive"
+      }
+
+      else {
+        return res.status(403).json({
+          success: false,
+          message: `You cannot set ${status} status`
+        });
+      }
     }
+    if (req.user.role === "superadmin") {
 
-    // 🔥 image update
-    if (req.file) {
-      updates.image = `/uploads/${req.file.filename}`;
+      const allowedStatuses = [
+        "draft",
+        "pending",
+        "approved",
+        "rejected",
+        "active",
+        "inactive"
+      ];
+
+      if (!allowedStatuses.includes(status)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid status"
+        });
+      }
+
     }
-
-    const product = await Product.findByIdAndUpdate(
-      req.params.id,
-      updates,
-      { new: true, runValidators: true }
-    );
+    const product = await Product.findById(productId);
 
     if (!product) {
       return res.status(404).json({
@@ -374,11 +528,107 @@ export const updateProduct = async (req, res) => {
       });
     }
 
+
+    /* ---------------- SELLER OWNERSHIP ---------------- */
+
+    if (
+      req.user.role === "seller" &&
+      product.sellerId.toString() !== req.user.id.toString()
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: "You are not allowed to update this product"
+      });
+    }
+
+    /* ---------------- ALLOWED FIELDS ---------------- */
+
+    const allowedUpdates = [
+      "name",
+      "status",
+      "description",
+      "isNewArrival",
+      "isTrending",
+      "isBestSelling",
+      "isTopRated",
+      "returnPolicyDays"
+    ];
+
+    allowedUpdates.forEach(field => {
+      if (req.body[field] !== undefined) {
+        updates[field] = req.body[field];
+      }
+    });
+
+    /* ---------------- SPECIFICATIONS ---------------- */
+
+    if (req.body.specifications) {
+      let specs = req.body.specifications;
+
+      if (typeof specs === "string") {
+        try {
+          specs = JSON.parse(specs);
+        } catch {
+          return res.status(400).json({
+            success: false,
+            message: "Invalid JSON format in specifications"
+          });
+        }
+      }
+
+      if (typeof specs !== "object" || Array.isArray(specs)) {
+        return res.status(400).json({
+          success: false,
+          message: "Specifications must be an object"
+        });
+      }
+
+      updates.specifications = specs;
+    }
+
+    /* ---------------- IMAGE UPDATE ---------------- */
+    if (req.files?.length > 0) {
+      const newImages = req.files.map(
+        file => `/uploads/${file.filename}`
+      );
+
+      updates.productImage = newImages;
+    }
+
+    /* ---------------- QC FLOW ---------------- */
+
+    if (req.user.role === "seller") {
+      updates.status = "pending";
+    }
+
+    if (updates.name && updates.name !== product.name) {
+      updates.slug = await generateProductSlug(
+        updates.name,
+        product._id
+      );
+    }
+    /* ---------------- UPDATE ---------------- */
+
+    const updatedProduct = await Product.findByIdAndUpdate(
+      productId,
+      updates,
+      {
+        new: true,
+        runValidators: true
+      }
+    );
+
     return res.status(200).json({
       success: true,
-      product
+      message:
+        req.user.role === "seller"
+          ? "Product updated & sent for QC"
+          : "Product updated successfully",
+      product: updatedProduct
     });
+
   } catch (error) {
+    console.error("update product error", error);
     return res.status(500).json({
       success: false,
       message: "Failed to update product"

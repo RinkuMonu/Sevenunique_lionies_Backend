@@ -6,14 +6,14 @@ import ProductVariant from "../models/productVariant.model.js";
    POST /api/admin/products/:productId/variants
 ========================= */
 
-const generateSKU = (product, color, size) => {
-    const formatCode = (value) =>
-        value.replace(/\s+/g, "").toUpperCase();
+const formatCode = (value = "") => value.toString().replace(/\s+/g, "").toUpperCase().slice(0, 4);
+const generateSKU = (product, attributes) => {
     const brandCode = "LIO";
-    const categoryCode = formatCode(product?.categoryId?.name || "GENERIC");
-    const colorCode = formatCode(color || "DEFAULT");
-    const sizeCode = formatCode(size || "STD");
-    return `${brandCode}-${categoryCode}-${colorCode}-${sizeCode}`;
+    const categoryCode = formatCode(product?.categoryId?.name || "GEN");
+    const colorCode = formatCode(attributes.get("color") || "DEF");
+    const sizeCode = formatCode(attributes.get("size") || "STD");
+    const uniqueCode = Math.random().toString(36).substring(2, 6).toUpperCase();
+    return `${brandCode}-${categoryCode}-${colorCode}-${sizeCode}-${uniqueCode}`;
 };
 
 
@@ -21,75 +21,146 @@ const generateSKU = (product, color, size) => {
 export const addVariant = async (req, res) => {
     try {
         const { productId } = req.params;
-        const { color, size, stock, variantTitle, variantDiscription, pricing } = req.body;
+        let { attributes, stock, variantTitle, variantDiscription, pricing } = req.body;
 
-        if (!color || !size || !pricing?.mrp ||
-            pricing.discountPercent === undefined || stock === undefined || !variantTitle || !variantDiscription) {
-            return res.status(400).json({
-                success: false,
-                message: "color, size, pricing, discountPercent, mrp, variantTitle, variantDiscription and stock are required"
-            });
-        }   
-        if (typeof pricing === "string") {
-            pricing = JSON.parse(pricing);
+        /* ---------------- PARSE ATTRIBUTES ---------------- */
+
+        if (typeof attributes === "string") {
+            try {
+                attributes = JSON.parse(attributes);
+            } catch {
+                return res.status(400).json({
+                    success: false,
+                    message: "Invalid JSON format in attributes"
+                });
+            }
         }
 
-        if (!pricing) {
-            pricing = {
-                mrp: req.body.mrp,
-                discountPercent: req.body.discountPercent,
-                // platformFeePercent: req.body.platformFeePercent,
-                taxPercent: req.body.taxPercent
-            };
+        if (!attributes || typeof attributes !== "object" || Array.isArray(attributes)) {
+            return res.status(400).json({
+                success: false,
+                message: "Attributes must be an object"
+            });
+        }
+
+        const attributeMap = new Map();
+
+        for (const key of Object.keys(attributes)) {
+            if (!attributes[key]) continue;
+
+            attributeMap.set(
+                key.toLowerCase(),
+                String(attributes[key]).toLowerCase().trim()
+            );
+        }
+
+        if (attributeMap.size === 0) {
+            return res.status(400).json({
+                success: false,
+                message: "Attributes cannot be empty"
+            });
+        }
+
+        /* ---------------- PARSE PRICING ---------------- */
+
+        if (typeof pricing === "string") {
+            try {
+                pricing = JSON.parse(pricing);
+            } catch {
+                return res.status(400).json({
+                    success: false,
+                    message: "Invalid JSON format in pricing"
+                });
+            }
+        }
+
+        if (!pricing?.mrp || pricing.discountPercent === undefined) {
+            return res.status(400).json({
+                success: false,
+                message: "MRP & discountPercent required"
+            });
         }
 
         pricing.mrp = Number(pricing.mrp);
         pricing.discountPercent = Number(pricing.discountPercent);
-        // pricing.platformFeePercent = Number(pricing.platformFeePercent || 12);
         pricing.taxPercent = Number(pricing.taxPercent || 18);
         stock = Number(stock);
 
-        // ✅ product exists check
+        if (isNaN(pricing.mrp) || isNaN(pricing.discountPercent) || isNaN(stock)) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid numeric values"
+            });
+        }
+
+        /* ---------------- BASIC REQUIRED ---------------- */
+
+        if (!variantTitle || !variantDiscription) {
+            return res.status(400).json({
+                success: false,
+                message: "Variant title & description required"
+            });
+        }
+
+        /* ---------------- PRODUCT CHECK ---------------- */
+
         const product = await Product.findOne({
             _id: productId,
             isActive: true
-        }).select("categoryId").populate("categoryId", "name").lean();
+        }).lean();
 
-
-        if (!product || !product.categoryId?.name) {
+        console.log(product)
+        if (!product) {
             return res.status(404).json({
                 success: false,
-                message: "Product not found or inactive or category not found"
+                message: "Product not found or inactive"
             });
         }
-        const exists = await ProductVariant.exists({
-            productId,
-            color,
-            size
-        })
 
-        if (exists) {
+        if (product.sellerId.toString() !== req.user.id.toString()) {
+            return res.status(403).json({
+                success: false,
+                message: "You are not allowed to add variants to this product"
+            });
+        }
+
+
+        /* ---------------- DUPLICATE CHECK ---------------- */
+
+        const existsVariant = await ProductVariant.findOne({
+            productId,
+            "attributes.size": attributeMap.get("size"),
+            "attributes.color": attributeMap.get("color")
+        })
+            .select("sku attributes")
+            .lean();
+
+        if (existsVariant) {
             return res.status(409).json({
                 success: false,
-                message: `Variant already exists for this color: ${color} and size: ${size}`
+                message: "Variant already exists for this combination",
+                SKU: existsVariant.sku,
+                color: existsVariant.attributes,
             });
         }
 
-        const sku = generateSKU(product, color, size);
-        console.log(sku)
+        /* ---------------- SKU ---------------- */
 
+        const sku = generateSKU(product, attributeMap);
 
-        // ✅ images
-        const variantImages = req.files
-            ? req.files.map(file => `/uploads/${file.filename}`)
-            : [];
+        /* ---------------- IMAGES ---------------- */
+
+        const variantImages = req.files?.map(
+            file => `/uploads/${file.filename}`
+        ) || [];
+
+        /* ---------------- CREATE ---------------- */
 
         const variant = await ProductVariant.create({
             productId,
             variantTitle,
             variantDiscription,
-            color: color.trim().toLowerCase(),
-            size: size.trim().toLowerCase(),
+            attributes: attributeMap,
             pricing,
             stock,
             variantImages,
@@ -97,29 +168,27 @@ export const addVariant = async (req, res) => {
         });
 
         return res.status(201).json({
-            message: "Variant now go to for QC (Quality Check) and once approved it will be live on the platform",
             success: true,
+            message: "Variant added & sent for QC",
             variant
         });
 
     } catch (error) {
         console.error(error);
+
         if (error.code === 11000) {
-            const field = Object.keys(error.keyPattern)[0];
-            const value = error.keyValue[field];
             return res.status(409).json({
                 success: false,
-                message: `${field} '${value}' already exists`
+                message: error.message
             });
         }
-        console.log("Error in addVariant:", error);
+
         return res.status(500).json({
             success: false,
             message: "Failed to add variant"
         });
     }
 };
-
 /* =========================
    GET VARIANTS BY PRODUCT
    GET /api/products/:productId/variants
