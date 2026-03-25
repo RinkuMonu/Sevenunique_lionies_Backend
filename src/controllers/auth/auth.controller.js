@@ -273,7 +273,7 @@ export const login = async (req, res) => {
         }
 
         const sessionId = crypto.randomUUID();
-        const token = generateToken(user, sessionId);
+        const token = generateToken(user, sessionId);       
 
         if (redis) {
             await redis.setex(

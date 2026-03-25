@@ -1,6 +1,7 @@
 import ProductVariant from "../models/productVariant.model.js";
 import CartModal from "../models/cart.model.js"
 import productVariantModel from "../models/productVariant.model.js";
+import cartModel from "../models/cart.model.js";
 
 
 export const addToCart = async (req, res) => {
@@ -208,16 +209,80 @@ export const removeCartItem = async (req, res) => {
 
 export const getCart = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user.id
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 5;
+    const skip = (page - 1) * limit;
+    const cart = await cartModel.aggregate([
+      { $match: { user: userId } },
 
-    const cart = await CartModal.findOne({ user: userId });
+      { $unwind: "$items" },
 
-    return res.json({
+      { $match: { "items.isActive": true } },
+      { $skip: skip },
+      { $limit: limit },
+      {
+        $lookup: {
+          from: "products",
+          localField: "items.productId",
+          foreignField: "_id",
+          as: "product"
+        }
+      },
+      { $unwind: "$product" },
+
+      {
+        $lookup: {
+          from: "productvariants",
+          localField: "items.variantId",
+          foreignField: "_id",
+          as: "variant"
+        }
+      },
+      { $unwind: "$variant" },
+      {
+        $group: {
+          _id: "$_id",
+          user: { $first: "$user" },
+          grandTotal: { $first: "$grandTotal" },
+          items: {
+            $push: {
+              _id: "$items._id",
+              productId: "$items.productId",
+              variantId: "$items.variantId",
+              sellerId: "$items.sellerId",
+              quantity: "$items.quantity",
+              price: "$items.price",
+
+              product: {
+                _id: "$product._id",
+                title: "$product.name",
+                // images: "$product.productImage",
+                description: "$product.description",
+              },
+              variant: {
+                _id: "$variant._id",
+                name: "$variant.variantTitle",
+                variantImages: "$variant.variantImages",
+                sellingPrice: "$variant.pricing.sellingPrice",
+                mrp: "$variant.pricing.mrp",
+                taxPercent: "$variant.pricing.taxPercent"
+              }
+            }
+          }
+        }
+      }
+    ]);
+
+    return res.status(200).json({
       success: true,
-      cart: cart || { items: [], grandTotal: 0 }
+      page,
+      limit,
+      data: cart[0] || { items: [], grandTotal: 0 }
     });
 
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false });
   }
 };
