@@ -35,6 +35,7 @@ dotenv.config();
 connectDB();
 
 import { initSocket } from "./config/socket.js";
+import multer from "multer";
 // const waitingCount = await orderQueue.getWaitingCount();
 // const waiting = await orderQueue.getWaiting();
 // const counts = await orderQueue.getJobCounts();
