@@ -21,8 +21,6 @@ const cartItemSchema = new mongoose.Schema(
       required: true
     },
 
-    /* 📸 SNAPSHOTS (SUPER IMPORTANT) */
-
     mrp: {
       type: Number,
       required: true

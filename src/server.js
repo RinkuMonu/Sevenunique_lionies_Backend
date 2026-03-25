@@ -51,7 +51,6 @@ const allowedOrigins = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
 ];
-
 app.use(
     cors({
         origin: function (origin, callback) {
@@ -116,7 +115,7 @@ app.use("/api/trancation", walletTrancation);
 app.use("/api/contact", contactRoutes);
 app.use("/api/banner", bannerRoutes);
 app.use("/api/faq", faqRoutes);
-app.use("/api/newsletter", newsletterRoutes);
+app.use("/api/newsletter", newsletterRoutes); 
 app.use("/api/review", reviewRoutes);
 app.use("/api/wishlist", wishlistRoutes);
 app.use("/api/cart", cartRoutes);

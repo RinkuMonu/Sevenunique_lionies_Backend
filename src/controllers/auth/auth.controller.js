@@ -273,14 +273,14 @@ export const login = async (req, res) => {
         }
 
         const sessionId = crypto.randomUUID();
-        const token = generateToken(user, sessionId);
+        const token = generateToken(user, sessionId);       
 
         if (redis) {
             await redis.setex(
                 `USER_AUTH_SESSION:${user._id}`,
                 60 * 60 * 24 * 7,
                 sessionId
-            );
+            ); 
         }
 
         user.lastLogin = new Date();
