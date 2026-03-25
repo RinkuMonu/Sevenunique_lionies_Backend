@@ -280,7 +280,7 @@ export const login = async (req, res) => {
                 `USER_AUTH_SESSION:${user._id}`,
                 60 * 60 * 24 * 7,
                 sessionId
-            );
+            ); 
         }
 
         user.lastLogin = new Date();
