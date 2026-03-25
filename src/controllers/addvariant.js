@@ -19,21 +19,214 @@ const generateSKU = (product, size, color) => {
 
 
 
+// export const addVariant = async (req, res) => {
+//     try {
+//         const { productId } = req.params;
+//         if (!mongoose.Types.ObjectId.isValid(productId)) {
+//             return res.status(400).json({
+//                 success: false,
+//                 message: "Invalid product ID"
+//             });
+//         }
+//         let { stock, variantTitle, variantDiscription, pricing, size, color, } = req.body;
+
+//         if (!variantTitle || !size || !color) {
+//             return res.status(400).json({
+//                 success: false,
+//                 message: "variantTitle, size, color, cannot be empty"
+//             });
+//         }
+
+//         /* ---------------- IMAGES ---------------- */
+
+//         const variantImages = req.files?.map(
+//             file => `/uploads/${file.filename}`
+//         ) || [];
+
+//         if (!variantImages || variantImages.length < 3) {
+//             return res.status(400).json({
+//                 success: false,
+//                 message: "Minimum 3 variant images are required"
+//             });
+//         }
+
+//         /* ---------------- PARSE PRICING ---------------- */
+
+//         if (typeof pricing === "string") {
+//             try {
+//                 pricing = JSON.parse(pricing);
+//             } catch {
+//                 return res.status(400).json({
+//                     success: false,
+//                     message: "Invalid JSON format in pricing"
+//                 });
+//             }
+//         }
+
+//         if (!pricing?.mrp || !pricing?.costPrice || !pricing?.sellingPrice) {
+//             return res.status(400).json({
+//                 success: false,
+//                 message: "MRP, Cost Price and Selling Price are required"
+//             });
+//         }
+//         if (pricing.costPrice && Number(pricing.costPrice) > Number(pricing.mrp)) {
+//             return res.status(400).json({
+//                 success: false,
+//                 message: "Cost price cannot be greater than MRP"
+//             });
+//         }
+//         if (pricing.sellingPrice > pricing.mrp) {
+//             return res.status(400).json({
+//                 success: false,
+//                 message: "Selling price cannot be greater than MRP"
+//             });
+//         }
+//         pricing.mrp = Number(pricing.mrp);
+//         pricing.costPrice = Number(pricing.costPrice);
+//         pricing.taxPercent = Number(pricing.taxPercent);
+//         pricing.sellingPrice = Number(pricing.sellingPrice);
+//         stock = Number(stock);
+
+//         if (pricing.mrp <= 0 || stock < 0) {
+//             return res.status(400).json({
+//                 success: false,
+//                 message: "Invalid price or stock"
+//             });
+//         }
+//         color = color.toLowerCase().trim();
+//         size = size.toUpperCase().trim();
+
+//         /* ---------------- PRODUCT CHECK ---------------- */
+
+//         const product = await Product.findOne({
+//             _id: productId,
+//             isActive: true,
+//             status: "approved"
+//         }).select("sellerId categoryId")
+//             .populate("categoryId", "name")
+//             .lean();
+
+//         if (!product) {
+//             return res.status(404).json({
+//                 success: false,
+//                 message: "Product inactive Or Under QC"
+//             });
+//         }
+
+//         if (product.sellerId.toString() !== req.user.id.toString()) {
+//             return res.status(403).json({
+//                 success: false,
+//                 message: "You are not allowed to add variants to this product"
+//             });
+//         }
+
+
+//         /* ---------------- DUPLICATE CHECK ---------------- */
+
+//         const existsVariant = await ProductVariant.findOne({
+//             productId,
+//             size,
+//             color
+//         }).select("sku color size").lean();
+//         if (existsVariant) {
+//             return res.status(409).json({
+//                 success: false,
+//                 message: `Variant already exists for this combination ( ${existsVariant.sku} )`,
+//                 SKU: existsVariant.sku,
+//                 color: existsVariant.color,
+//                 size: existsVariant.size
+//             });
+//         }
+
+//         /* ---------------- SKU ---------------- */
+
+//         const sku = generateSKU(product, size, color);
+
+//         /* ---------------- CREATE ---------------- */
+
+//         const variant = await ProductVariant.create({
+//             productId,
+//             sellerId: product.sellerId,
+//             status: "pending",
+//             variantTitle,
+//             variantDiscription,
+//             color,
+//             size,
+//             pricing,
+//             stock,
+//             variantImages,
+//             sku
+//         });
+//         console.log(variant)
+
+//         return res.status(201).json({
+//             success: true,
+//             message: "Variant added & sent for QC",
+//             variant
+//         });
+
+//     } catch (error) {
+//         console.log(error);
+
+//         if (error.code === 11000) {
+//             return res.status(409).json({
+//                 success: false,
+//                 message: error.message
+//             });
+//         }
+
+//         return res.status(500).json({
+//             success: false,
+//             message: error.message || "Failed to add variant"
+//         });
+//     }
+// };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 export const addVariant = async (req, res) => {
     try {
         const { productId } = req.params;
+
         if (!mongoose.Types.ObjectId.isValid(productId)) {
             return res.status(400).json({
                 success: false,
                 message: "Invalid product ID"
             });
         }
-        let { stock, variantTitle, variantDiscription, pricing, size, color, } = req.body;
 
-        if (!variantTitle || !size || !color) {
+        let { variantTitle, variantDiscription, pricing, size, sizes, color } = req.body;
+
+        if (typeof sizes === "string") {
+            try {
+                sizes = JSON.parse(sizes);
+            } catch (err) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Invalid sizes format"
+                });
+            }
+        }
+        // console.log(req.body)
+
+        const isMultiSize = Array.isArray(sizes) && sizes.length > 0;
+
+        if (!variantTitle || (!size && !isMultiSize) || !color) {
             return res.status(400).json({
                 success: false,
-                message: "variantTitle, size, color, cannot be empty"
+                message: "variantTitle, size/sizes, color cannot be empty"
             });
         }
 
@@ -50,120 +243,104 @@ export const addVariant = async (req, res) => {
             });
         }
 
-        /* ---------------- PARSE PRICING ---------------- */
+        /* ================= MULTI SIZE FLOW ================= */
 
-        if (typeof pricing === "string") {
-            try {
-                pricing = JSON.parse(pricing);
-            } catch {
-                return res.status(400).json({
+        if (isMultiSize) {
+
+            const product = await Product.findOne({
+                _id: productId,
+                isActive: true,
+                status: "approved"
+            }).select("sellerId categoryId")
+                .populate("categoryId", "name")
+                .lean();
+
+            if (!product) {
+                return res.status(404).json({
                     success: false,
-                    message: "Invalid JSON format in pricing"
+                    message: "Product inactive Or Under QC"
                 });
             }
-        }
 
-        if (!pricing?.mrp || !pricing?.costPrice || !pricing?.sellingPrice) {
-            return res.status(400).json({
-                success: false,
-                message: "MRP, Cost Price and Selling Price are required"
+            if (product.sellerId.toString() !== req.user.id.toString()) {
+                return res.status(403).json({
+                    success: false,
+                    message: "You are not allowed to add variants to this product"
+                });
+            }
+
+            color = color.toLowerCase().trim();
+
+            const variantsToCreate = [];
+
+            for (let item of sizes) {
+
+                let sizeVal = item.size ? item.size.toUpperCase().trim() : null;
+                if (!sizeVal) continue;
+
+                let itemPricing = item.pricing;
+
+                if (typeof itemPricing === "string") {
+                    try {
+                        itemPricing = JSON.parse(itemPricing);
+                    } catch {
+                        continue;
+                    }
+                }
+
+                if (!itemPricing?.mrp || !itemPricing?.costPrice || !itemPricing?.sellingPrice) continue;
+
+                if (Number(itemPricing.costPrice) > Number(itemPricing.mrp)) continue;
+                if (Number(itemPricing.sellingPrice) > Number(itemPricing.mrp)) continue;
+
+                itemPricing.mrp = Number(itemPricing.mrp);
+                itemPricing.costPrice = Number(itemPricing.costPrice);
+                itemPricing.taxPercent = Number(itemPricing.taxPercent || 0);
+                itemPricing.sellingPrice = Number(itemPricing.sellingPrice);
+
+                let itemStock = Number(item.stock);
+                if (itemStock < 0) continue;
+
+                const existsVariant = await ProductVariant.findOne({
+                    productId,
+                    size: sizeVal,
+                    color
+                });
+
+                if (existsVariant) continue;
+
+                const sku = generateSKU(product, sizeVal, color);
+
+                variantsToCreate.push({
+                    productId,
+                    sellerId: product.sellerId,
+                    status: "pending",
+                    variantTitle,
+                    variantDiscription,
+                    color,
+                    size: sizeVal,
+                    pricing: itemPricing,
+                    stock: itemStock,
+                    variantImages,
+                    sku
+                });
+            }
+
+            if (variantsToCreate.length === 0) {
+                return res.status(409).json({
+                    success: false,
+                    message: "All variants already exist or invalid data"
+                });
+            }
+
+            const createdVariants = await ProductVariant.insertMany(variantsToCreate);
+
+            return res.status(201).json({
+                success: true,
+                message: "Variants added successfully",
+                variants: createdVariants
             });
         }
-        if (pricing.costPrice && Number(pricing.costPrice) > Number(pricing.mrp)) {
-            return res.status(400).json({
-                success: false,
-                message: "Cost price cannot be greater than MRP"
-            });
-        }
-        if (pricing.sellingPrice > pricing.mrp) {
-            return res.status(400).json({
-                success: false,
-                message: "Selling price cannot be greater than MRP"
-            });
-        }
-        pricing.mrp = Number(pricing.mrp);
-        pricing.costPrice = Number(pricing.costPrice);
-        pricing.taxPercent = Number(pricing.taxPercent);
-        pricing.sellingPrice = Number(pricing.sellingPrice);
-        stock = Number(stock);
-
-        if (pricing.mrp <= 0 || stock < 0) {
-            return res.status(400).json({
-                success: false,
-                message: "Invalid price or stock"
-            });
-        }
-        color = color.toLowerCase().trim();
-        size = size.toUpperCase().trim();
-
-        /* ---------------- PRODUCT CHECK ---------------- */
-
-        const product = await Product.findOne({
-            _id: productId,
-            isActive: true,
-            status: "approved"
-        }).select("sellerId categoryId")
-            .populate("categoryId", "name")
-            .lean();
-
-        if (!product) {
-            return res.status(404).json({
-                success: false,
-                message: "Product inactive Or Under QC"
-            });
-        }
-
-        if (product.sellerId.toString() !== req.user.id.toString()) {
-            return res.status(403).json({
-                success: false,
-                message: "You are not allowed to add variants to this product"
-            });
-        }
-
-
-        /* ---------------- DUPLICATE CHECK ---------------- */
-
-        const existsVariant = await ProductVariant.findOne({
-            productId,
-            size,
-            color
-        }).select("sku color size").lean();
-        if (existsVariant) {
-            return res.status(409).json({
-                success: false,
-                message: `Variant already exists for this combination ( ${existsVariant.sku} )`,
-                SKU: existsVariant.sku,
-                color: existsVariant.color,
-                size: existsVariant.size
-            });
-        }
-
-        /* ---------------- SKU ---------------- */
-
-        const sku = generateSKU(product, size, color);
-
-        /* ---------------- CREATE ---------------- */
-
-        const variant = await ProductVariant.create({
-            productId,
-            sellerId: product.sellerId,
-            status: "pending",
-            variantTitle,
-            variantDiscription,
-            color,
-            size,
-            pricing,
-            stock,
-            variantImages,
-            sku
-        });
-        console.log(variant)
-
-        return res.status(201).json({
-            success: true,
-            message: "Variant added & sent for QC",
-            variant
-        });
 
     } catch (error) {
         console.log(error);
@@ -181,7 +358,6 @@ export const addVariant = async (req, res) => {
         });
     }
 };
-
 
 
 
@@ -218,7 +394,7 @@ export const updateVariant = async (req, res) => {
                 message: "You are not allowed to update this variant"
             });
         }
-        
+
         let variantImages = variant.variantImages;
 
         if (req.files?.length) {
@@ -394,10 +570,22 @@ export const getAllVariants = async (req, res) => {
         const {
             search = "",
             page = 1,
-            limit = 10
+            limit = 10,
+
+            // 🔥 NEW PARAMS
+            sort = "newest",
+            color,
+            size,
+            minPrice,
+            maxPrice,
+            lowStock,
+            category
+
         } = req.query;
 
         const query = {};
+
+        /* ---------------- SEARCH ---------------- */
 
         if (search) {
             query.$or = [
@@ -407,37 +595,92 @@ export const getAllVariants = async (req, res) => {
             ];
         }
 
+        /* ---------------- FILTERS ---------------- */
+
+        if (color) {
+            query.color = color.toLowerCase();
+        }
+
+        if (size) {
+            query.size = size.toUpperCase();
+        }
+
+        if (minPrice || maxPrice) {
+            query["pricing.sellingPrice"] = {};
+            if (minPrice) query["pricing.sellingPrice"].$gte = Number(minPrice);
+            if (maxPrice) query["pricing.sellingPrice"].$lte = Number(maxPrice);
+        }
+
+        if (lowStock === "true") {
+            query.stock = { $lte: 5 };
+        }
+
+        /* ---------------- SORT ---------------- */
+
+        let sortOption = { createdAt: -1 };
+
+        switch (sort) {
+            case "stock_asc":
+                sortOption = { stock: 1 };
+                break;
+            case "stock_desc":
+                sortOption = { stock: -1 };
+                break;
+            case "price_asc":
+                sortOption = { "pricing.sellingPrice": 1 };
+                break;
+            case "price_desc":
+                sortOption = { "pricing.sellingPrice": -1 };
+                break;
+            case "newest":
+                sortOption = { createdAt: -1 };
+                break;
+            default:
+                sortOption = { createdAt: -1 };
+        }
+
+        /* ---------------- PAGINATION ---------------- */
+
         const skip = (page - 1) * limit;
 
-        const [variants, total] = await Promise.all([
+        /* ---------------- QUERY WITH CATEGORY ---------------- */
+
+        const [variantsRaw, total] = await Promise.all([
 
             ProductVariant.find(query)
-                .populate("productId", "name")
-                .sort({ createdAt: -1 })
+                .populate({
+                    path: "productId",
+                    match: category ? { subCategoryId: category } : {},
+                    select: "name category"
+                })
+                .sort(sortOption)
                 .skip(skip)
-                .limit(Number(limit)),
+                .limit(Number(limit))
+                .lean(),
 
             ProductVariant.countDocuments(query)
 
         ]);
 
+        /* ---------------- REMOVE NULL PRODUCTS ---------------- */
+
+        const variants = variantsRaw.filter(v => v.productId !== null);
+
         return res.status(200).json({
             success: true,
             page: Number(page),
             limit: Number(limit),
-            totalVariants: total,
+            totalVariants: variants.length, // filtered count
             totalPages: Math.ceil(total / limit),
             variants
         });
 
     } catch (error) {
-
         return res.status(500).json({
             success: false,
             message: "Failed to fetch variants",
             error: error.message
         });
-
     }
 };
 

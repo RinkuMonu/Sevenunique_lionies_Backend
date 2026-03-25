@@ -18,12 +18,6 @@ const productVariantSchema = new mongoose.Schema({
     required: true
   },
 
-  // attributes: {
-  //   type: Map,
-  //   of: String,
-  //   required: true
-  // },
-
   size: {
     type: String,
     required: true
