@@ -10,6 +10,7 @@ import {
     getVariantById,
     getAllVariants,
     updateVariantStatusByAdmin,
+    getAllQcVariants,
     updateVariantStock
 } from "../controllers/addvariant.js";
 import { isSeller, isSuperAdmin } from "../middlewares/role.middleware.js";
@@ -33,6 +34,10 @@ addvarintRoute.get(
     // isSeller,
     // isSuperAdmin,
     getAllVariants
+);
+addvarintRoute.get(
+    "/admin/qc-variants/:productId",
+    getAllQcVariants
 );
 
 

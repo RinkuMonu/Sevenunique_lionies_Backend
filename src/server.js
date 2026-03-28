@@ -29,7 +29,10 @@ import leadrouter from "./routes/leadControl.route.js";
 import orderQueue from "./queues/orderQueues/order.queue.js";
 // import "./queues/orderQueues/order.worker.js"
 import walletTrancation from "./routes/ReportsRoute/report.route.js";
+import addresRouter from "./routes/address.router.js";
+import multer from "multer";
 const app = express();
+import { initSocket } from "./config/socket.js";
 const server = http.createServer(app);
 dotenv.config();
 connectDB();
@@ -50,6 +53,7 @@ import withdrawalReq from "./routes/withdrawal.routes.js";
 
 const allowedOrigins = [
     "http://localhost:5173",
+    "http://localhost:5174",
     "http://127.0.0.1:5173",
 ];
 app.use(
@@ -123,6 +127,7 @@ app.use("/api/review", reviewRoutes);
 app.use("/api/wishlist", wishlistRoutes);
 app.use("/api/cart", cartRoutes);
 app.use("/api/coupon", couponRoutes);
+app.use("/api/address", addresRouter);
 // Lead route
 app.use("/api/leads", leadrouter)
 

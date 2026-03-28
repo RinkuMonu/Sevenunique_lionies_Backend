@@ -117,12 +117,11 @@ export const getBrandsNameID = async (req, res) => {
             query.sellerId = req.user.id;
         }
 
-        const brands = await Brand.find(query)
-            .sort({ createdAt: -1 }).select("_id name")
+        const brands = await Brand.find(query).select("name _id").lean().sort({ createdAt: -1 })
 
         return res.json({
             success: true,
-            data: brands,
+            brands,
         });
 
     } catch (err) {

@@ -8,6 +8,7 @@ import {
   acceptOrderBySeller,
   getUnseenOrders,
   markOrdersSeen,
+  getAllOrders,
   cancelOrder
 } from "../controllers/order.controller.js";
 import { protect } from "../middlewares/auth.middleware.js";
@@ -19,6 +20,7 @@ const router = express.Router();
 router.post("/", protect, createOrder);
 router.post("/cancelorder/:id", protect, cancelOrder);
 router.get("/my", protect, getOrders);
+router.get("/myAll", protect, isSeller, isSuperAdmin, getAllOrders);
 // seller get unseen order//
 router.get("/unseen", protect, getUnseenOrders);
 // get order by id?

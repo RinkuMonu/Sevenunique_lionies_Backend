@@ -244,10 +244,10 @@ export const addVariant = async (req, res) => {
         }
 
         /* ================= MULTI SIZE FLOW ================= */
-
+        let product;
         if (isMultiSize) {
 
-            const product = await Product.findOne({
+            product = await Product.findOne({
                 _id: productId,
                 isActive: true,
                 status: "approved"
@@ -334,6 +334,8 @@ export const addVariant = async (req, res) => {
             }
 
             const createdVariants = await ProductVariant.insertMany(variantsToCreate);
+            product.isNewVariantAdd = true;
+            await product.save();
 
             return res.status(201).json({
                 success: true,
@@ -461,6 +463,8 @@ export const updateVariant = async (req, res) => {
 
 
         /* -------- CHECK CHANGES -------- */
+        const isImagesChanged =
+            req.files?.length > 0;
 
         const isOnlyStockUpdate =
             Number(stock) !== variant.stock &&
@@ -468,7 +472,8 @@ export const updateVariant = async (req, res) => {
             pricing.costPrice === variant.pricing.costPrice &&
             pricing.sellingPrice === variant.pricing.sellingPrice &&
             size === variant.size &&
-            color === variant.color;
+            color === variant.color &&
+            !isImagesChanged;
 
         const updatedVariant = await ProductVariant.findByIdAndUpdate(
             id,
@@ -482,10 +487,17 @@ export const updateVariant = async (req, res) => {
                 variantImages,
                 ...(isOnlyStockUpdate
                     ? {}
-                    : { status: "pending", isActive: false })
+                    : { status: "pending" })
             },
             { new: true, runValidators: true }
         );
+        if (isImagesChanged) {
+            await Product.findByIdAndUpdate(
+                { _id: variant.productId },
+                { isNewVariantAdd: true },
+                { new: true }
+            );
+        }
 
         return res.json({
             success: true,
@@ -747,6 +759,39 @@ export const getAllVariants = async (req, res) => {
         });
     }
 };
+export const getAllQcVariants = async (req, res) => {
+    try {
+        const { productId } = req.params;
+
+        // 🔥 Fetch pending variants for this product
+        const variants = await ProductVariant.find({
+            productId,
+            status: "pending"
+        }).lean();
+
+        // 🔴 If no variants found
+        if (!variants.length) {
+            return res.status(404).json({
+                success: false,
+                message: "No QC variants found for this product"
+            });
+        }
+
+        return res.json({
+            success: true,
+            count: variants.length,
+            variants
+        });
+
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({
+            success: false,
+            message: "Failed to fetch variants",
+            error: error.message
+        });
+    }
+};
 
 
 
@@ -793,7 +838,24 @@ export const updateVariantStatusByAdmin = async (req, res) => {
         variant.qcActionBy = req.user.id;
         variant.qcAt = new Date();
         variant.qcNote = status === "rejected" ? qcNote : "";
-        variant.isActive = status === "approved";
+        // variant.isActive = status === "approved";
+        if (status === "approved") {
+
+            // ✅ check if any pending variants still exist
+            const pendingVariants = await ProductVariant.countDocuments({
+                productId: variant.productId,
+                status: "pending"
+            });
+
+            // ✅ if NO pending variants → update product
+            if (pendingVariants === 0) {
+                await Product.findByIdAndUpdate(
+                    variant.productId,
+                    { isNewVariantAdd: false },
+                    { new: true }
+                );
+            }
+        }
 
         await variant.save();
 

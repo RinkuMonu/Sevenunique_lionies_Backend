@@ -13,8 +13,8 @@ const cartRoute = express.Router();
 
 cartRoute.get("/", protect, getCart);
 cartRoute.post("/add", protect, addToCart);
-cartRoute.post("/updateCart", protect, updateCartItem);
-cartRoute.post("/removecart/:id", protect, removeCartItem);
+cartRoute.put("/updateCart", protect, updateCartItem);
+cartRoute.delete("/removecart/:id", protect, removeCartItem);
 // cartRoute.post("/update", protect, updateCartItemQuantity);
 // cartRoute.post("/remove", protect, removeItemFromCart);
 // cartRoute.get("/", protect, getCart);

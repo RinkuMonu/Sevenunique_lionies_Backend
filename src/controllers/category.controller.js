@@ -81,7 +81,7 @@ export const createCategory = async (req, res) => {
    GET /api/categories
 ========================= */
 export const getCategories = async (req, res) => {
-    try {
+    try {        
 
         const {
             search,
@@ -143,7 +143,7 @@ export const getCategories = async (req, res) => {
         });
 
     } catch (error) {
-
+  
         console.error("GET CATEGORY ERROR:", error);
 
         return res.status(500).json({
