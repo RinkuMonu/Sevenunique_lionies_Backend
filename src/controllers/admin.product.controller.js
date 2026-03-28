@@ -198,7 +198,7 @@ export const getProducts = async (req, res) => {
     const {
       search,
       category,
-      subCategory,
+      subCategory,  
       brand,
       color,
       size,
@@ -434,6 +434,337 @@ export const getProducts = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Failed to fetch products"
+    });
+  }
+};
+export const getProductsForWeb = async (req, res) => {
+  try {
+    const {
+      search,
+      category,
+      subCategory,  
+      brand,
+      color,
+      size,
+      minPrice,
+      maxPrice,
+      sort,
+      page = 1,
+      limit = 10,
+      isTrending,
+      isBestSelling,
+      isTopRated
+    } = req.query;
+
+    // const isPrivileged =
+    //   req.user?.role === "superAdmin" ||
+    //   req.user?.role === "seller";
+    const isPrivileged = false
+
+    const pageNumber = Number(page);
+    const pageSize = Number(limit);
+    const skip = (pageNumber - 1) * pageSize;
+
+    /* ---------------- PRODUCT MATCH ---------------- */
+
+    const productMatch = { isActive: true };
+
+    if (search) {
+      productMatch.name = { $regex: search, $options: "i" };
+    }
+    if (category)
+      productMatch.categoryId = new mongoose.Types.ObjectId(category);
+
+    if (subCategory)
+      productMatch.subCategoryId = new mongoose.Types.ObjectId(subCategory);
+
+    if (brand)
+      productMatch.brandId = new mongoose.Types.ObjectId(brand);
+
+    if (isTrending === "true") productMatch.isTrending = true;
+    if (isBestSelling === "true") productMatch.isBestSelling = true;
+    if (isTopRated === "true") productMatch.isTopRated = true;
+
+    /* ---------------- VARIANT MATCH ---------------- */
+
+    const variantMatch = {};
+
+    // 👤 CUSTOMER
+    if (!isPrivileged) {
+      variantMatch.isActive = true;
+      variantMatch.stock = { $gt: 0 };
+      variantMatch.status = "approved"
+    }
+    if (req.user?.role === "seller") {
+      variantMatch.sellerId = new mongoose.Types.ObjectId(req.user.id);
+    }
+    if (color)
+      variantMatch["attributes.color"] = color.toLowerCase();
+
+    if (size)
+      variantMatch["attributes.size"] = size.toLowerCase();
+
+    if (minPrice || maxPrice) {
+      variantMatch["pricing.sellingPrice"] = {};
+      if (minPrice)
+        variantMatch["pricing.sellingPrice"].$gte = Number(minPrice);
+      if (maxPrice)
+        variantMatch["pricing.sellingPrice"].$lte = Number(maxPrice);
+    }
+
+    /* ---------------- PIPELINE ---------------- */
+
+    const pipeline = [
+
+      { $match: productMatch },
+
+      /* ---------- VARIANTS LOOKUP ---------- */
+
+      {
+        $lookup: {
+          from: "productvariants",
+          let: { productId: "$_id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: { $eq: ["$productId", "$$productId"] },
+                ...variantMatch
+              }
+            },
+            {
+              $project: {
+                sellingPrice: "$pricing.sellingPrice",
+                color: "$attributes.color",
+                mrp: "$pricing.mrp",
+              }
+            }
+          ],
+          as: "variants"
+        }
+      },
+
+      /* ---------- CUSTOMER → REMOVE EMPTY PRODUCTS ---------- */
+
+      // ...(!isPrivileged
+      //   ? [{ $match: { variants: { $ne: [] } } }]
+      //   : []),
+
+      /* ---------- CATEGORY LOOKUP ---------- */
+
+      {
+        $lookup: {
+          from: "categories",
+          localField: "categoryId",
+          foreignField: "_id",
+          as: "category"
+        }
+      },
+      {
+        $unwind: {
+          path: "$category",
+          preserveNullAndEmptyArrays: true
+        }
+      },
+      // subcategory
+      {
+        $lookup: {
+          from: "subcategories",
+          localField: "subCategoryId",
+          foreignField: "_id",
+          as: "subCategory"
+        }
+      },
+      {
+        $unwind: {
+          path: "$subCategory",
+          preserveNullAndEmptyArrays: true
+        }
+      },
+
+      /* ---------- BRAND LOOKUP ---------- */
+
+      {
+        $lookup: {
+          from: "brands",
+          localField: "brandId",
+          foreignField: "_id",
+          as: "brand"
+        }
+      },
+      {
+        $unwind: {
+          path: "$brand",
+          preserveNullAndEmptyArrays: true
+        }
+      },
+
+      /* ---------- CALCULATED FIELDS ---------- */
+
+      {
+        $addFields: {
+          startingPrice: { $min: "$variants.sellingPrice" },
+          mrp: { $max: "$variants.mrp" },
+          colors: { $setUnion: [[], "$variants.color"] },
+          totalVariants: { $size: "$variants" },
+          hasVariants: { $gt: [{ $size: "$variants" }, 0] }
+        }
+      },
+
+      /* ---------- RESPONSE SHAPE ---------- */
+
+      {
+        $project: {
+          name: 1,
+          productImage: 1,
+          subCategoryId: 1,
+          description: 1,
+          hsnCode: 1,
+          gender: 1,
+          isdeliveryFree: 1,
+          category: "$category.name",
+          taxPercent: "$category.taxPercent",
+          brand: "$brand.name",
+          sizeType: "$subCategory.sizeType",
+          specifications: 1,
+          rating: 1,
+          totalRatings: 1,
+          isNewArrival: 1,
+          isTrending: 1,
+          isBestSelling: 1,
+          isTopRated: 1,
+          returnPolicyDays: 1,
+
+          mrp: 1,
+          startingPrice: 1,
+          colors: 1,
+          totalVariants: 1,
+          hasVariants: 1
+        }
+      }
+    ];
+
+    /* ---------------- SORT ---------------- */
+
+    if (sort === "price_low")
+      pipeline.push({ $sort: { startingPrice: 1 } });
+
+    if (sort === "price_high")
+      pipeline.push({ $sort: { startingPrice: -1 } });
+
+    /* ---------------- PAGINATION ---------------- */
+
+    pipeline.push({
+      $facet: {
+        data: [{ $skip: skip }, { $limit: pageSize }],
+        totalCount: [{ $count: "count" }]
+      }
+    });
+
+    const result = await Product.aggregate(pipeline);
+
+    const products = result[0].data;
+    const totalCount = result[0].totalCount[0]?.count || 0;
+
+    return res.json({
+      success: true,
+      count: totalCount,
+      currentPage: pageNumber,
+      totalPages: Math.ceil(totalCount / pageSize),
+      products
+    });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch products"
+    });
+  }
+};
+
+export const getQcProducts = async (req, res) => {
+  try {
+    const {
+      search,
+      category,
+      brand,
+      sellerId,
+      sort = "latest", // latest | oldest
+      page = 1,
+      limit = 10
+    } = req.query;
+
+    const pageNumber = Number(page);
+    const pageSize = Number(limit);
+    const skip = (pageNumber - 1) * pageSize;
+
+    /* ---------------- MATCH FILTER ---------------- */
+
+    const match = {
+      isActive: true,
+      isNewVariantAdd: true
+    };
+
+    // 🔍 Search by product name
+    if (search) {
+      match.name = { $regex: search, $options: "i" };
+    }
+
+    // 📂 Category filter
+    if (category) {
+      match.categoryId = new mongoose.Types.ObjectId(category);
+    }
+
+    // 🏷 Brand filter
+    if (brand) {
+      match.brandId = new mongoose.Types.ObjectId(brand);
+    }
+
+    // 👤 Seller filter
+    if (sellerId) {
+      match.sellerId = new mongoose.Types.ObjectId(sellerId);
+    }
+
+    /* ---------------- SORT ---------------- */
+
+    let sortOption = { createdAt: -1 }; // latest default
+
+    if (sort === "oldest") {
+      sortOption = { createdAt: 1 };
+    }
+
+    /* ---------------- QUERY ---------------- */
+
+    const products = await Product.find(match)
+      .select(
+        "name productImage categoryId brandId sellerId isNewVariantAdd createdAt"
+      )
+      .populate("categoryId", "name")
+      .populate("brandId", "name")
+      .populate("sellerId", "name email")
+      .sort(sortOption)
+      .skip(skip)
+      .limit(pageSize)
+      .lean();
+
+    /* ---------------- COUNT ---------------- */
+
+    const totalCount = await Product.countDocuments(match);
+
+    return res.json({
+      success: true,
+      count: totalCount,
+      currentPage: pageNumber,
+      totalPages: Math.ceil(totalCount / pageSize),
+      products
+    });
+
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch QC products",
+      error: error.message
     });
   }
 };

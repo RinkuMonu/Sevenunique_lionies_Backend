@@ -52,6 +52,10 @@ const productSchema = new mongoose.Schema({
     default: "pending"
   },
 
+  isNewVariantAdd: {
+    type: Boolean,
+    default: false
+  },
   specifications: {
     type: Map,
     of: String

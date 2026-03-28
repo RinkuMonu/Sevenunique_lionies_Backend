@@ -171,7 +171,7 @@ export const removeCartItem = async (req, res) => {
   try {
     const userId = req.user.id;
     const { id } = req.params;
-    if (!id) {
+    if (!id || id === undefined) {
       return res.status(404).json({ success: false, message: "variantId missing" });
 
     }

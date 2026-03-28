@@ -436,6 +436,161 @@ export const getOrders = async (req, res) => {
           as: "customer"
         }
       },
+      {
+        $lookup: {
+          from: "riders",
+          localField: "riderId",
+          foreignField: "_id",
+          as: "rider"
+        }
+      },
+
+      {
+        $unwind: {
+          path: "$customer",
+          preserveNullAndEmptyArrays: true
+        }
+      },
+      {
+        $unwind: {
+          path: "$rider",
+          preserveNullAndEmptyArrays: true
+        }
+      },
+
+      {
+        $sort: { createdAt: -1 }
+      },
+
+      {
+        $facet: {
+          data: [
+            { $skip: skip },
+            { $limit: pageSize }
+          ],
+          totalCount: [
+            { $count: "count" }
+          ]
+        }
+      }
+
+    ];
+
+    const result = await Order.aggregate(pipeline);
+
+    const orders = result[0].data;
+    const totalCount = result[0].totalCount[0]?.count || 0;
+
+    res.json({
+      success: true,
+      orders,
+      currentPage: pageNumber,
+      totalPages: Math.ceil(totalCount / pageSize),
+      totalCount
+    });
+
+  } catch (error) {
+
+    res.status(500).json({
+      message: "Failed to fetch orders",
+      error: error.message
+    });
+
+  }
+};
+
+export const getAllOrders = async (req, res) => {
+  try {
+
+    const {
+      page = 1,
+      limit = 10,
+      orderNumber,
+      customerId,
+      sellerId,
+      riderId,
+      productId,
+      orderStatus,
+      settlementStatus,
+      paymentMethod
+    } = req.query;
+
+    const role = req.user.role;
+
+    const pageNumber = Number(page);
+    const pageSize = Number(limit);
+    const skip = (pageNumber - 1) * pageSize;
+
+    let match = {};
+
+    /* -----------------------------
+       ROLE BASED FILTER
+    ------------------------------*/
+
+    if (role === "customer") {
+      match.customerId = req.user.id;
+    }
+
+    if (role === "seller") {
+      match.sellerId = req.user.sellerId;
+    }
+
+    if (role === "rider") {
+      match.riderId = req.user.riderId;
+    }
+
+    /* -----------------------------
+       QUERY FILTERS
+    ------------------------------*/
+
+    if (orderNumber) {
+      match.orderNumber = { $regex: orderNumber, $options: "i" };
+    }
+
+    if (customerId) {
+      match.customerId = customerId;
+    }
+
+    if (sellerId) {
+      match.sellerId = sellerId;
+    }
+
+    if (riderId) {
+      match.riderId = riderId;
+    }
+
+    if (orderStatus) {
+      match.orderStatus = orderStatus;
+    }
+
+    if (paymentMethod) {
+      match.paymentMethod = paymentMethod;
+    }
+
+    if (settlementStatus) {
+      match.settlementStatus = settlementStatus;
+    }
+
+    if (productId) {
+      match["items.productId"] = productId;
+    }
+
+    /* -----------------------------
+       PIPELINE
+    ------------------------------*/
+
+    const pipeline = [
+
+      { $match: match },
+
+      {
+        $lookup: {
+          from: "Users",
+          localField: "customerId",
+          foreignField: "_id",
+          as: "customer"
+        }
+      },
 
       {
         $lookup: {
